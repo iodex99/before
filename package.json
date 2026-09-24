@@ -1,0 +1,30 @@
+{
+  "name": "before",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "BEFORE — an AI second opinion for purchases. Monorepo: iOS app + Supabase backend.",
+  "engines": {
+    "node": ">=22.6.0"
+  },
+  "scripts": {
+    "test:backend": "node --test \"backend/tests/**/*.test.ts\"",
+    "test:score": "node --test backend/tests/score-engine.test.ts",
+    "test:watch": "node --test --watch \"backend/tests/**/*.test.ts\"",
+    "check:secrets": "node backend/scripts/check-secrets.mjs",
+    "parity": "node backend/scripts/print-fixtures.mjs",
+    "typecheck": "tsc --noEmit -p backend/tsconfig.json",
+    "test:migrations": "bash backend/scripts/verify-migrations.sh",
+    "test:workflows": "node --test backend/tests/workflows.test.ts",
+    "test:all": "npm run test:backend && npm run check:secrets && npm run check:deno && npm run test:migrations",
+    "check:deno": "deno check --config backend/supabase/functions/deno.json backend/supabase/functions/*/index.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0"
+  },
+  "devDependencies": {
+    "deno": "^2.9.6",
+    "js-yaml": "^4.1.0",
+    "typescript": "^5.7.2"
+  }
+}

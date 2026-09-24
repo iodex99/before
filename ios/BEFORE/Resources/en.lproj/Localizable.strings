@@ -1,0 +1,13 @@
+/*
+  BEFORE — English strings.
+
+  Launch language is English (spec §62). The architecture supports more:
+  nothing is concatenated in a way a translator cannot reorder, and no date or
+  currency format is hard-coded.
+
+  Most UI copy is inline in SwiftUI views. This file holds the strings that are
+  reached through NSLocalizedString from BeforeKit, which has no view context.
+*/
+
+"date.today" = "Today";
+"date.yesterday" = "Yesterday";

@@ -1,0 +1,349 @@
+{
+  "$comment": [
+    "Deterministic AI fixtures for AI_MOCK_MODE and for UI development.",
+    "Signal values were chosen so PurchaseScoreEngine produces the documented",
+    "score exactly — see backend/tests/mock-provider.test.ts, which asserts it.",
+    "Never served when APP_ENV=production; config.ts refuses to boot that combination."
+  ],
+  "fixtures": [
+    {
+      "id": "demo_leather_jacket",
+      "expectedScore": 78,
+      "expectedVerdict": "WAIT",
+      "response": {
+        "product": {
+          "name": "Cropped leather jacket",
+          "brand": null,
+          "category": "fashion",
+          "subcategory": "outerwear",
+          "price": 198,
+          "currency": "USD",
+          "retailer": null,
+          "material": "Leather (estimated from image)",
+          "sources": {
+            "name": "estimated",
+            "category": "confirmed",
+            "subcategory": "confirmed",
+            "price": "confirmed",
+            "currency": "confirmed",
+            "material": "estimated"
+          },
+          "price_confidence": 0.95,
+          "identity_confidence": 0.6
+        },
+        "visual_analysis": {
+          "colors": ["black"],
+          "style_tags": ["minimal", "classic", "edgy"],
+          "occasion_tags": ["everyday", "evening"],
+          "versatility_estimate": 84,
+          "visual_quality_confidence": 0.7
+        },
+        "signals": {
+          "style_match": 93,
+          "wardrobe_compatibility": 90,
+          "duplication_risk": 52,
+          "expected_usage": 88,
+          "value_for_money": 74,
+          "budget_fit": 72,
+          "wardrobe_gap": 66
+        },
+        "signal_availability": {
+          "style_match": true,
+          "wardrobe_compatibility": true,
+          "duplication_risk": true,
+          "expected_usage": true,
+          "value_for_money": true,
+          "budget_fit": true,
+          "wardrobe_gap": true
+        },
+        "reasoning": {
+          "positive_factors": [
+            "Works with the neutrals that make up most of what you own",
+            "Black outerwear is the highest-wear category in your history",
+            "The cropped cut suits the trousers you already wear most"
+          ],
+          "negative_factors": [
+            "You own a black moto jacket that covers a similar occasion",
+            "This is above your usual outerwear spend"
+          ],
+          "key_risk": "It overlaps with a jacket you already reach for.",
+          "advice": "Wait 48 hours. If you are still thinking about it, come back.",
+          "uncertainties": [
+            "Brand not confidently identified",
+            "Material estimated from the image, not confirmed"
+          ]
+        },
+        "recommendation": {
+          "suggested_action": "WAIT",
+          "confidence": 0.82
+        }
+      }
+    },
+    {
+      "id": "demo_buy_loafers",
+      "expectedScore": 88,
+      "expectedVerdict": "BUY",
+      "response": {
+        "product": {
+          "name": "Leather loafers",
+          "brand": null,
+          "category": "fashion",
+          "subcategory": "shoes",
+          "price": 145,
+          "currency": "USD",
+          "retailer": null,
+          "material": null,
+          "sources": {
+            "category": "confirmed",
+            "subcategory": "confirmed",
+            "price": "confirmed",
+            "currency": "confirmed"
+          },
+          "price_confidence": 0.92,
+          "identity_confidence": 0.78
+        },
+        "visual_analysis": {
+          "colors": ["brown", "tan"],
+          "style_tags": ["classic", "minimal", "preppy"],
+          "occasion_tags": ["work", "everyday"],
+          "versatility_estimate": 91,
+          "visual_quality_confidence": 0.82
+        },
+        "signals": {
+          "style_match": 94,
+          "wardrobe_compatibility": 92,
+          "duplication_risk": 12,
+          "expected_usage": 90,
+          "value_for_money": 80,
+          "budget_fit": 78,
+          "wardrobe_gap": 90
+        },
+        "signal_availability": {
+          "style_match": true,
+          "wardrobe_compatibility": true,
+          "duplication_risk": true,
+          "expected_usage": true,
+          "value_for_money": true,
+          "budget_fit": true,
+          "wardrobe_gap": true
+        },
+        "reasoning": {
+          "positive_factors": [
+            "You own no flat leather shoe in this colour family",
+            "Works with the trousers and skirts you already wear to work",
+            "Your history shows shoes at this price get worn for years"
+          ],
+          "negative_factors": ["Sizing on this style runs inconsistent, so returns are likely"],
+          "key_risk": "Fit is the only real unknown here.",
+          "advice": "This fills a genuine gap. Buy the size you can return.",
+          "uncertainties": ["Brand not confidently identified"]
+        },
+        "recommendation": {
+          "suggested_action": "BUY",
+          "confidence": 0.88
+        }
+      }
+    },
+    {
+      "id": "demo_wait_mini_bag",
+      "expectedScore": 72,
+      "expectedVerdict": "WAIT",
+      "response": {
+        "product": {
+          "name": "Structured mini bag",
+          "brand": null,
+          "category": "fashion",
+          "subcategory": "bags",
+          "price": 220,
+          "currency": "USD",
+          "retailer": null,
+          "material": null,
+          "sources": {
+            "category": "confirmed",
+            "subcategory": "confirmed",
+            "price": "estimated"
+          },
+          "price_confidence": 0.55,
+          "identity_confidence": 0.62
+        },
+        "visual_analysis": {
+          "colors": ["cream", "off-white"],
+          "style_tags": ["minimal", "feminine"],
+          "occasion_tags": ["evening", "weekend"],
+          "versatility_estimate": 68,
+          "visual_quality_confidence": 0.66
+        },
+        "signals": {
+          "style_match": 88,
+          "wardrobe_compatibility": 86,
+          "duplication_risk": 55,
+          "expected_usage": 80,
+          "value_for_money": 66,
+          "budget_fit": 64,
+          "wardrobe_gap": 45
+        },
+        "signal_availability": {
+          "style_match": true,
+          "wardrobe_compatibility": true,
+          "duplication_risk": true,
+          "expected_usage": true,
+          "value_for_money": true,
+          "budget_fit": true,
+          "wardrobe_gap": true
+        },
+        "reasoning": {
+          "positive_factors": [
+            "The cream works with the palette you buy most",
+            "Small structured bags get high wear in your history"
+          ],
+          "negative_factors": [
+            "A mini bag limits how often it is practical",
+            "Price looks high for an unbranded piece"
+          ],
+          "key_risk": "Small bags in your history get worn for a season, then stop.",
+          "advice": "Check whether it holds your phone and keys before deciding.",
+          "uncertainties": [
+            "Price estimated from the image, not confirmed",
+            "Brand not confidently identified"
+          ]
+        },
+        "recommendation": {
+          "suggested_action": "WAIT",
+          "confidence": 0.71
+        }
+      }
+    },
+    {
+      "id": "demo_bye_duplicate_knit",
+      "expectedScore": 51,
+      "expectedVerdict": "BYE",
+      "response": {
+        "product": {
+          "name": "Ribbed knit top",
+          "brand": null,
+          "category": "fashion",
+          "subcategory": "tops",
+          "price": 89,
+          "currency": "USD",
+          "retailer": null,
+          "material": null,
+          "sources": {
+            "category": "confirmed",
+            "subcategory": "confirmed",
+            "price": "confirmed",
+            "currency": "confirmed"
+          },
+          "price_confidence": 0.9,
+          "identity_confidence": 0.7
+        },
+        "visual_analysis": {
+          "colors": ["black"],
+          "style_tags": ["minimal", "casual"],
+          "occasion_tags": ["everyday"],
+          "versatility_estimate": 62,
+          "visual_quality_confidence": 0.75
+        },
+        "signals": {
+          "style_match": 68,
+          "wardrobe_compatibility": 62,
+          "duplication_risk": 72,
+          "expected_usage": 55,
+          "value_for_money": 45,
+          "budget_fit": 50,
+          "wardrobe_gap": 30
+        },
+        "signal_availability": {
+          "style_match": true,
+          "wardrobe_compatibility": true,
+          "duplication_risk": true,
+          "expected_usage": true,
+          "value_for_money": true,
+          "budget_fit": true,
+          "wardrobe_gap": true
+        },
+        "reasoning": {
+          "positive_factors": ["Black knits are the thing you wear most"],
+          "negative_factors": [
+            "You already own three black ribbed knits",
+            "Nothing here does a job your wardrobe is missing",
+            "Priced above what you usually pay for a basic top"
+          ],
+          "key_risk": "This is the fourth version of something you already have.",
+          "advice": "Skip it. You have better uses for the money.",
+          "uncertainties": ["Brand not confidently identified"]
+        },
+        "recommendation": {
+          "suggested_action": "BYE",
+          "confidence": 0.86
+        }
+      }
+    },
+    {
+      "id": "demo_no_wardrobe_first_time",
+      "expectedScore": 78,
+      "expectedVerdict": "WAIT",
+      "response": {
+        "product": {
+          "name": "Wool blend coat",
+          "brand": null,
+          "category": "fashion",
+          "subcategory": "outerwear",
+          "price": 240,
+          "currency": "USD",
+          "retailer": null,
+          "material": null,
+          "sources": {
+            "category": "confirmed",
+            "subcategory": "confirmed",
+            "price": "confirmed",
+            "currency": "confirmed"
+          },
+          "price_confidence": 0.9,
+          "identity_confidence": 0.72
+        },
+        "visual_analysis": {
+          "colors": ["camel"],
+          "style_tags": ["classic", "minimal"],
+          "occasion_tags": ["work", "everyday"],
+          "versatility_estimate": 80,
+          "visual_quality_confidence": 0.74
+        },
+        "signals": {
+          "style_match": 84,
+          "wardrobe_compatibility": 50,
+          "duplication_risk": 50,
+          "expected_usage": 80,
+          "value_for_money": 70,
+          "budget_fit": 76,
+          "wardrobe_gap": 50
+        },
+        "signal_availability": {
+          "style_match": true,
+          "wardrobe_compatibility": false,
+          "duplication_risk": false,
+          "expected_usage": true,
+          "value_for_money": true,
+          "budget_fit": true,
+          "wardrobe_gap": false
+        },
+        "reasoning": {
+          "positive_factors": [
+            "Camel outerwear goes with almost any palette",
+            "A wool blend coat at this price usually lasts several seasons"
+          ],
+          "negative_factors": ["BEFORE does not know your wardrobe well enough to judge overlap yet"],
+          "key_risk": "You may already own something that does this job.",
+          "advice": "Add a few pieces you own and BEFORE can make a more personal call.",
+          "uncertainties": [
+            "Brand not confidently identified",
+            "No wardrobe data, so overlap could not be assessed"
+          ]
+        },
+        "recommendation": {
+          "suggested_action": "WAIT",
+          "confidence": 0.85
+        }
+      }
+    }
+  ]
+}

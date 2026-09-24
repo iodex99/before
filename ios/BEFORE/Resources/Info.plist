@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>BEFORE</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+
+	<!-- Configuration, injected from Config.xcconfig. None of these are secret:
+	     the anon key is publishable and RLS is what protects the data. -->
+	<key>SUPABASE_URL</key>
+	<string>$(SUPABASE_URL)</string>
+	<key>SUPABASE_ANON_KEY</key>
+	<string>$(SUPABASE_ANON_KEY)</string>
+	<key>APP_GROUP_IDENTIFIER</key>
+	<string>$(APP_GROUP_IDENTIFIER)</string>
+	<key>TERMS_URL</key>
+	<string>$(TERMS_URL)</string>
+	<key>PRIVACY_URL</key>
+	<string>$(PRIVACY_URL)</string>
+	<key>SUPPORT_EMAIL</key>
+	<string>$(SUPPORT_EMAIL)</string>
+
+	<!-- Permission strings. Specific about why, because "BEFORE needs camera
+	     access" is not a reason. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo of something you are thinking about buying, and BEFORE will tell you whether it is worth it.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Save a BEFORE result card to your photos so you can share it.</string>
+
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+	</dict>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>UIUserInterfaceStyle</key>
+	<string>Automatic</string>
+	<!-- Only standard HTTPS and platform crypto are used. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+</dict>
+</plist>

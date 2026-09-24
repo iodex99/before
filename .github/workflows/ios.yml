@@ -1,0 +1,186 @@
+# =============================================================================
+# BEFORE — iOS CI.
+#
+# This is the workflow that closes the largest verification gap in the project:
+# none of the Swift has ever been compiled, because it was written on Windows.
+#
+# The jobs are ordered by how much they cost and how likely they are to fail:
+#
+#   1. BeforeKit    pure Swift, no Xcode project, no simulator. Seconds.
+#                   Runs the SAME score fixtures as the Node suite, so a drift
+#                   between the two engines fails here.
+#   2. Build        generates the Xcode project and compiles every target.
+#   3. Test         unit and UI tests on a simulator.
+#
+# Expect job 2 to find real errors on its first run. That is what it is for.
+# =============================================================================
+
+name: iOS
+
+on:
+  push:
+    branches: [main, master]
+    paths: ['ios/**', 'backend/shared/fixtures/**', '.github/workflows/ios.yml']
+  pull_request:
+    paths: ['ios/**', 'backend/shared/fixtures/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Fastest, and the one that matters most: the score engine.
+  # ---------------------------------------------------------------------------
+  beforekit:
+    name: BeforeKit (score parity)
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.app
+
+      - run: swift --version
+
+      - name: Test
+        # ScoreParityTests loads backend/shared/fixtures/score-cases.json by
+        # walking up from #filePath, so the whole repo must be checked out —
+        # not just the package.
+        run: swift test --package-path ios/BeforeKit
+
+  # ---------------------------------------------------------------------------
+  # Compile everything.
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.app
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Configuration
+        # Placeholders only. Nothing here is secret — the app is allowed to know
+        # a project URL and a publishable anon key, and a build needs neither to
+        # be real.
+        run: |
+          cat > ios/Config.xcconfig <<'EOF'
+          URL_SLASHES = //
+          APP_BUNDLE_ID = com.yourcompany.before
+          APP_GROUP_IDENTIFIER = group.com.yourcompany.before
+          SUPABASE_URL = https:$(URL_SLASHES)ci.invalid
+          SUPABASE_ANON_KEY = ci-placeholder-anon-key
+          TERMS_URL = https:$(URL_SLASHES)example.invalid/terms
+          PRIVACY_URL = https:$(URL_SLASHES)example.invalid/privacy
+          SUPPORT_EMAIL = ci@example.invalid
+          EOF
+
+      - name: Generate the Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project ios/BEFORE.xcodeproj \
+            -scheme BEFORE \
+            -destination 'generic/platform=iOS Simulator' \
+            -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcbeautify || xcodebuild build \
+              -project ios/BEFORE.xcodeproj \
+              -scheme BEFORE \
+              -destination 'generic/platform=iOS Simulator' \
+              CODE_SIGNING_ALLOWED=NO
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: ~/Library/Logs/DiagnosticReports
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Unit and UI tests on a simulator.
+  # ---------------------------------------------------------------------------
+  test:
+    name: Unit and UI tests
+    runs-on: macos-15
+    timeout-minutes: 45
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.app
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Configuration
+        run: |
+          cat > ios/Config.xcconfig <<'EOF'
+          URL_SLASHES = //
+          APP_BUNDLE_ID = com.yourcompany.before
+          APP_GROUP_IDENTIFIER = group.com.yourcompany.before
+          SUPABASE_URL = https:$(URL_SLASHES)ci.invalid
+          SUPABASE_ANON_KEY = ci-placeholder-anon-key
+          TERMS_URL = https:$(URL_SLASHES)example.invalid/terms
+          PRIVACY_URL = https:$(URL_SLASHES)example.invalid/privacy
+          SUPPORT_EMAIL = ci@example.invalid
+          EOF
+
+      - name: Generate the Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Pick a simulator
+        id: sim
+        # Hard-coding a device name breaks whenever the runner image changes its
+        # simulator set, which it does. Ask instead.
+        run: |
+          UDID=$(xcrun simctl list devices available --json \
+            | python3 -c "
+          import json,sys
+          data = json.load(sys.stdin)['devices']
+          for runtime, devices in sorted(data.items(), reverse=True):
+              if 'iOS' not in runtime:
+                  continue
+              for d in devices:
+                  if d.get('isAvailable') and 'iPhone' in d['name']:
+                      print(d['udid']); sys.exit(0)
+          sys.exit('no available iPhone simulator')
+          ")
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl list devices available | grep -i iphone | head -5
+
+      - name: Test
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project ios/BEFORE.xcodeproj \
+            -scheme BEFORE \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcresult
+          path: TestResults.xcresult
+          if-no-files-found: ignore

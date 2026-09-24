@@ -1,0 +1,123 @@
+# =============================================================================
+# BEFORE — backend CI.
+#
+# Runs on any Linux runner in about a minute. Everything here is verifiable
+# without Xcode, without a Supabase project, and without an AI key — which is
+# the point: the parts of this product that decide what a user is told are
+# testable on a laptop.
+#
+# The iOS half needs a macOS runner and lives in ios.yml.
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+# A superseded push has nothing useful to say.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # 22.6 is the floor: below it, Node cannot run TypeScript directly and
+          # the whole no-build-step approach falls apart.
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Unit and contract tests
+        run: npm run test:backend
+
+      - name: Score-engine fixtures
+        # Printed so a failure shows what the two engines must agree on, not
+        # just that they disagreed.
+        run: npm run parity
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: No key material in the repository
+        run: npm run check:secrets
+
+      - name: The iOS target knows only the URL and the anon key
+        # Belt and braces: check:secrets already enforces this, but a build that
+        # ships a service-role key cannot be un-shipped.
+        run: |
+          if grep -rIn --include='*.swift' --include='*.plist' --include='*.xcconfig' \
+             -E 'SUPABASE_SERVICE_ROLE_KEY|ANTHROPIC_API_KEY|sk-ant-' ios/ ; then
+            echo "::error::server-side key material found under ios/"
+            exit 1
+          fi
+          echo "ok"
+
+  database:
+    name: Migrations and RLS
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: before_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply every migration and run the RLS checks
+        # Proves the policies WORK, not merely that they exist: two real users,
+        # real inserts, and assertions that neither can reach the other's rows.
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/before_test
+        run: bash backend/scripts/verify-migrations.sh
+
+  # Deno is what actually runs the edge functions in production. The unit tests
+  # exercise the shared logic under Node; this checks the functions themselves
+  # type-check under the runtime that will run them.
+  edge-functions:
+    name: Edge functions type-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Type-check
+        working-directory: backend/supabase/functions
+        # Import-map resolution and the @shared/ alias are checked here. A
+        # broken alias fails at deploy time otherwise, which is far too late.
+        run: deno check --config deno.json ./*/index.ts

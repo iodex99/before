@@ -1,0 +1,32 @@
+// =============================================================================
+// BEFORE — build configuration
+//
+// Copy to Config.xcconfig (git-ignored) and fill in. Nothing here is secret:
+// the Supabase anon key is publishable and Row Level Security is what protects
+// user data. Every real secret lives server-side.
+//
+//   cp Config.xcconfig.example Config.xcconfig
+//
+// `//` starts a comment in xcconfig, which breaks URLs — hence the URL_SLASHES
+// workaround below. It is ugly and it is the standard fix.
+// =============================================================================
+
+URL_SLASHES = //
+
+// ---- Identity ---------------------------------------------------------------
+APP_BUNDLE_ID = com.yourcompany.before
+
+// Must match both .entitlements files and the App Group you created in the
+// Apple Developer portal.
+APP_GROUP_IDENTIFIER = group.com.yourcompany.before
+
+// ---- Backend ----------------------------------------------------------------
+// e.g. https://abcdefgh.supabase.co  ->  SUPABASE_URL = https:$(URL_SLASHES)abcdefgh.supabase.co
+SUPABASE_URL = https:$(URL_SLASHES)your-project.supabase.co
+SUPABASE_ANON_KEY =
+
+// ---- Legal ------------------------------------------------------------------
+// BEFORE does not invent a company name. Point these at your own pages.
+TERMS_URL = https:$(URL_SLASHES)example.invalid/terms
+PRIVACY_URL = https:$(URL_SLASHES)example.invalid/privacy
+SUPPORT_EMAIL = support@example.invalid

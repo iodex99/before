@@ -1,0 +1,607 @@
+{
+  "$comment": [
+    "Shared PurchaseScoreEngine fixture suite.",
+    "Run by BOTH backend/tests/score-engine.test.ts (Node) and",
+    "ios/BeforeKit/Tests/BeforeKitTests/ScoreParityTests.swift (Swift).",
+    "If the two engines ever disagree, these tests fail before a user sees it.",
+    "Expected values were derived by hand from scoring/weights.ts, not captured",
+    "from engine output — that is the point of them."
+  ],
+  "algorithmVersion": "score_v1",
+  "cases": [
+    {
+      "name": "boundary_buy_exact_80",
+      "description": "Exactly on the BUY threshold. 80 must be BUY, not WAIT.",
+      "input": {
+        "signals": {
+          "style_match": 80,
+          "wardrobe_compatibility": 80,
+          "duplication_risk": 20,
+          "expected_usage": 80,
+          "value_for_money": 80,
+          "budget_fit": 80,
+          "wardrobe_gap": 80
+        },
+        "availability": {
+          "style_match": true,
+          "wardrobe_compatibility": true,
+          "duplication_risk": true,
+          "expected_usage": true,
+          "value_for_money": true,
+          "budget_fit": true,
+          "wardrobe_gap": true
+        },
+        "context": {
+          "hasWardrobeData": true,
+          "wardrobeItemCount": 14,
+          "priceKnown": true,
+          "price": 120,
+          "budgetSensitivity": "medium",
+          "categoryAverageSpend": 110,
+          "identityConfidence": 0.9
+        },
+        "aiConfidence": 0.9
+      },
+      "expected": {
+        "score": 80,
+        "verdict": "BUY",
+        "suggestedAction": "BUY_IT",
+        "confidence": 0.88,
+        "confidenceLabel": "high",
+        "appliedRules": []
+      }
+    },
+    {
+      "name": "boundary_wait_exact_79",
+      "description": "One point below BUY. Must fall to WAIT.",
+      "input": {
+        "signals": {
+          "style_match": 79,
+          "wardrobe_compatibility": 79,
+          "duplication_risk": 21,
+          "expected_usage": 79,
+          "value_for_money": 79,
+          "budget_fit": 79,
+          "wardrobe_gap": 79
+        },
+        "availability": {
+          "style_match": true,
+          "wardrobe_compatibility": true,
+          "duplication_risk": true,
+          "expected_usage": true,
+          "value_for_money": true,
+          "budget_fit": true,
+          "wardrobe_gap": true
+        },
+        "context": {
+          "hasWardrobeData": true,
+          "wardrobeItemCount": 14,
+          "priceKnown": true,
+          "price": 120,
+          "budgetSensitivity": "medium",
+          "categoryAverageSpend": 110,
+          "identityConfidence": 0.9
+        },
+        "aiConfidence": 0.9
+      },
+      "expected": {
+        "score": 79,
+        "verdict": "WAIT",
+        "suggestedAction": "WAIT_48_HOURS",
+        "confidence": 0.88,
+        "confidenceLabel": "high",
+        "appliedRules": []
+      }
+    },
+    {
+      "name": "boundary_wait_exact_60",
+      "description": "Bottom of the WAIT band.",
+      "input": {
+        "signals": {
+          "style_match": 60,
+          "wardrobe_compatibility": 60,
+          "duplication_risk": 40,
+          "expected_usage": 60,
+          "value_for_money": 60,
+          "budget_fit": 60,
+          "wardrobe_gap": 60
+        },
+        "availability": {
+          "style_match": true,
+          "wardrobe_compatibility": true,
+          "duplication_risk": true,
+          "expected_usage": true,
+          "value_for_money": true,
+          "budget_fit": true,
+          "wardrobe_gap": true
+        },
+        "context": {
+          "hasWardrobeData": true,
+          "wardrobeItemCount": 9,
+          "priceKnown": true,
+          "price": 90,
+          "budgetSensitivity": "medium",
+          "categoryAverageSpend": 100,
+          "identityConfidence": 0.9
+        },
+        "aiConfidence": 0.9
+      },
+      "expected": {
+        "score": 60,
+        "verdict": "WAIT",
+        "suggestedAction": "WAIT_48_HOURS",
+        "confidence": 0.88,
+        "confidenceLabel": "high",
+        "appliedRules": []
+      }
+    },
+    {
+      "name": "boundary_bye_exact_59",
+      "description": "One point below WAIT. BYE must stay reachable.",
+      "input": {
+        "signals": {
+          "style_match": 59,
+          "wardrobe_compatibility": 59,
+          "duplication_risk": 41,
+          "expected_usage": 59,
+          "value_for_money": 59,
+          "budget_fit": 59,
+          "wardrobe_gap": 59
+        },
+        "availability": {
+          "style_match": true,
+          "wardrobe_compatibility": true,
+          "duplication_risk": true,
+          "expected_usage": true,
+          "value_for_money": true,
+          "budget_fit": true,
+          "wardrobe_gap": true
+        },
+        "context": {
+          "hasWardrobeData": true,
+          "wardrobeItemCount": 9,
+          "priceKnown": true,
+          "price": 90,
+          "budgetSensitivity": "medium",
+          "categoryAverageSpend": 100,
+          "identityConfidence": 0.9
+        },
+        "aiConfidence": 0.9
+      },
+      "expected": {
+        "score": 59,
+        "verdict": "BYE",
+        "suggestedAction": "SKIP_IT",
+        "confidence": 0.88,
+        "confidenceLabel": "high",
+        "appliedRules": []
+      }
+    },
+    {
+      "name": "high_wardrobe_compatibility_buy",
+      "description": "Realistic BUY: fits the wardrobe, no duplicate, high usage.",
+      "input": {
+        "signals": {
+          "style_match": 90,
+          "wardrobe_compatibility": 92,
+          "duplication_risk": 12,
+          "expected_usage": 88,
+          "value_for_money": 74,
+          "budget_fit": 80,
+          "wardrobe_gap": 70
+        },
+        "availability": {
+          "style_match": true,
+          "wardrobe_compatibility": true,
+          "duplication_risk": true,
+          "expected_usage": true,
+          "value_for_money": true,
+          "budget_fit": true,
+          "wardrobe_gap": true
+        },
+        "context": {
+          "hasWardrobeData": true,
+          "wardrobeItemCount": 22,
+          "priceKnown": true,
+          "price": 128,
+          "budgetSensitivity": "medium",
+          "categoryAverageSpend": 115,
+          "identityConfidence": 0.92
+        },
+        "aiConfidence": 0.86
+      },
+      "expected": {
+        "score": 86,
+        "verdict": "BUY",
+        "suggestedAction": "BUY_IT",
+        "confidence": 0.84,
+        "confidenceLabel": "high",
+        "appliedRules": []
+      }
+    },
+    {
+      "name": "high_duplication_forces_bye",
+      "description": "Weighted average says WAIT; owning near-duplicates overrides to BYE.",
+      "input": {
+        "signals": {
+          "style_match": 85,
+          "wardrobe_compatibility": 80,
+          "duplication_risk": 94,
+          "expected_usage": 70,
+          "value_for_money": 65,
+          "budget_fit": 70,
+          "wardrobe_gap": 10
+        },
+        "availability": {
+          "style_match": true,
+          "wardrobe_compatibility": true,
+          "duplication_risk": true,
+          "expected_usage": true,
+          "value_for_money": true,
+          "budget_fit": true,
+          "wardrobe_gap": true
+        },
+        "context": {
+          "hasWardrobeData": true,
+          "wardrobeItemCount": 31,
+          "priceKnown": true,
+          "price": 198,
+          "budgetSensitivity": "medium",
+          "categoryAverageSpend": 180,
+          "identityConfidence": 0.88
+        },
+        "aiConfidence": 0.9
+      },
+      "expected": {
+        "score": 61,
+        "verdict": "BYE",
+        "suggestedAction": "SKIP_IT",
+        "confidence": 0.87,
+        "confidenceLabel": "high",
+        "appliedRules": ["duplication_dominant_bye"]
+      }
+    },
+    {
+      "name": "duplication_dominant_wait_changes_action",
+      "description": "Verdict stays WAIT but the advice becomes 'check your wardrobe first'.",
+      "input": {
+        "signals": {
+          "style_match": 88,
+          "wardrobe_compatibility": 88,
+          "duplication_risk": 78,
+          "expected_usage": 84,
+          "value_for_money": 72,
+          "budget_fit": 78,
+          "wardrobe_gap": 30
+        },
+        "availability": {
+          "style_match": true,
+          "wardrobe_compatibility": true,
+          "duplication_risk": true,
+          "expected_usage": true,
+          "value_for_money": true,
+          "budget_fit": true,
+          "wardrobe_gap": true
+        },
+        "context": {
+          "hasWardrobeData": true,
+          "wardrobeItemCount": 18,
+          "priceKnown": true,
+          "price": 96,
+          "budgetSensitivity": "medium",
+          "categoryAverageSpend": 92,
+          "identityConfidence": 0.9
+        },
+        "aiConfidence": 0.9
+      },
+      "expected": {
+        "score": 71,
+        "verdict": "WAIT",
+        "suggestedAction": "CHECK_WARDROBE_FIRST",
+        "confidence": 0.88,
+        "confidenceLabel": "high",
+        "appliedRules": ["duplication_dominant_wait"]
+      }
+    },
+    {
+      "name": "missing_price_applies_no_price_penalty",
+      "description": "Price unknown: value and budget drop OUT of the average rather than scoring badly. The deliberately terrible vfm/budget values below must not reach the score.",
+      "input": {
+        "signals": {
+          "style_match": 86,
+          "wardrobe_compatibility": 82,
+          "duplication_risk": 20,
+          "expected_usage": 78,
+          "value_for_money": 10,
+          "budget_fit": 5,
+          "wardrobe_gap": 65
+        },
+        "availability": {
+          "style_match": true,
+          "wardrobe_compatibility": true,
+          "duplication_risk": true,
+          "expected_usage": true,
+          "value_for_money": false,
+          "budget_fit": false,
+          "wardrobe_gap": true
+        },
+        "context": {
+          "hasWardrobeData": true,
+          "wardrobeItemCount": 16,
+          "priceKnown": false,
+          "price": null,
+          "budgetSensitivity": "medium",
+          "categoryAverageSpend": 110,
+          "identityConfidence": 0.7
+        },
+        "aiConfidence": 0.8
+      },
+      "expected": {
+        "score": 80,
+        "verdict": "BUY",
+        "suggestedAction": "BUY_IT",
+        "confidence": 0.66,
+        "confidenceLabel": "medium",
+        "appliedRules": ["price_unknown_no_price_penalty"],
+        "excludedFactors": ["value_for_money", "budget_fit"]
+      }
+    },
+    {
+      "name": "missing_wardrobe_does_not_pretend",
+      "description": "No wardrobe data: the three wardrobe signals are excluded and confidence drops, but the score is still honest about what IS known.",
+      "input": {
+        "signals": {
+          "style_match": 84,
+          "wardrobe_compatibility": 50,
+          "duplication_risk": 50,
+          "expected_usage": 80,
+          "value_for_money": 70,
+          "budget_fit": 76,
+          "wardrobe_gap": 50
+        },
+        "availability": {
+          "style_match": true,
+          "wardrobe_compatibility": false,
+          "duplication_risk": false,
+          "expected_usage": true,
+          "value_for_money": true,
+          "budget_fit": true,
+          "wardrobe_gap": false
+        },
+        "context": {
+          "hasWardrobeData": false,
+          "wardrobeItemCount": 0,
+          "priceKnown": true,
+          "price": 140,
+          "budgetSensitivity": "medium",
+          "categoryAverageSpend": null,
+          "identityConfidence": 0.9
+        },
+        "aiConfidence": 0.85
+      },
+      "expected": {
+        "score": 78,
+        "verdict": "WAIT",
+        "suggestedAction": "WAIT_48_HOURS",
+        "confidence": 0.66,
+        "confidenceLabel": "medium",
+        "appliedRules": ["no_wardrobe_data"],
+        "excludedFactors": ["wardrobe_compatibility", "duplication_risk", "wardrobe_gap"]
+      }
+    },
+    {
+      "name": "expensive_for_high_budget_sensitivity",
+      "description": "Scores as BUY but costs 2.75x this user's own median for the category, and they told us price matters. Downgraded to WAIT with 'wait for a sale'.",
+      "input": {
+        "signals": {
+          "style_match": 92,
+          "wardrobe_compatibility": 88,
+          "duplication_risk": 15,
+          "expected_usage": 86,
+          "value_for_money": 78,
+          "budget_fit": 60,
+          "wardrobe_gap": 72
+        },
+        "availability": {
+          "style_match": true,
+          "wardrobe_compatibility": true,
+          "duplication_risk": true,
+          "expected_usage": true,
+          "value_for_money": true,
+          "budget_fit": true,
+          "wardrobe_gap": true
+        },
+        "context": {
+          "hasWardrobeData": true,
+          "wardrobeItemCount": 27,
+          "priceKnown": true,
+          "price": 495,
+          "budgetSensitivity": "high",
+          "categoryAverageSpend": 180,
+          "identityConfidence": 0.95
+        },
+        "aiConfidence": 0.9
+      },
+      "expected": {
+        "score": 83,
+        "verdict": "WAIT",
+        "suggestedAction": "WAIT_FOR_SALE",
+        "confidence": 0.89,
+        "confidenceLabel": "high",
+        "appliedRules": ["expensive_for_budget"]
+      }
+    },
+    {
+      "name": "low_confidence_demotes_buy",
+      "description": "BEFORE will not tell someone to spend money on an analysis it is not sure about.",
+      "input": {
+        "signals": {
+          "style_match": 86,
+          "wardrobe_compatibility": 86,
+          "duplication_risk": 14,
+          "expected_usage": 86,
+          "value_for_money": 86,
+          "budget_fit": 86,
+          "wardrobe_gap": 86
+        },
+        "availability": {
+          "style_match": true,
+          "wardrobe_compatibility": true,
+          "duplication_risk": true,
+          "expected_usage": true,
+          "value_for_money": true,
+          "budget_fit": true,
+          "wardrobe_gap": true
+        },
+        "context": {
+          "hasWardrobeData": true,
+          "wardrobeItemCount": 11,
+          "priceKnown": true,
+          "price": 75,
+          "budgetSensitivity": "low",
+          "categoryAverageSpend": 80,
+          "identityConfidence": 0.5
+        },
+        "aiConfidence": 0.4
+      },
+      "expected": {
+        "score": 86,
+        "verdict": "WAIT",
+        "suggestedAction": "WAIT_48_HOURS",
+        "confidence": 0.35,
+        "confidenceLabel": "low",
+        "appliedRules": ["low_confidence_demotes_buy"]
+      }
+    },
+    {
+      "name": "low_value_drags_good_style_down",
+      "description": "Looks right, costs too much for what it is. This is a BYE.",
+      "input": {
+        "signals": {
+          "style_match": 80,
+          "wardrobe_compatibility": 70,
+          "duplication_risk": 30,
+          "expected_usage": 62,
+          "value_for_money": 22,
+          "budget_fit": 25,
+          "wardrobe_gap": 45
+        },
+        "availability": {
+          "style_match": true,
+          "wardrobe_compatibility": true,
+          "duplication_risk": true,
+          "expected_usage": true,
+          "value_for_money": true,
+          "budget_fit": true,
+          "wardrobe_gap": true
+        },
+        "context": {
+          "hasWardrobeData": true,
+          "wardrobeItemCount": 19,
+          "priceKnown": true,
+          "price": 340,
+          "budgetSensitivity": "medium",
+          "categoryAverageSpend": 150,
+          "identityConfidence": 0.9
+        },
+        "aiConfidence": 0.88
+      },
+      "expected": {
+        "score": 57,
+        "verdict": "BYE",
+        "suggestedAction": "SKIP_IT",
+        "confidence": 0.86,
+        "confidenceLabel": "high",
+        "appliedRules": []
+      }
+    },
+    {
+      "name": "no_assessable_signals_refuses_to_guess",
+      "description": "Nothing is knowable. Return a non-verdict rather than a confident-looking number.",
+      "input": {
+        "signals": {
+          "style_match": 50,
+          "wardrobe_compatibility": 50,
+          "duplication_risk": 50,
+          "expected_usage": 50,
+          "value_for_money": 50,
+          "budget_fit": 50,
+          "wardrobe_gap": 50
+        },
+        "availability": {
+          "style_match": false,
+          "wardrobe_compatibility": false,
+          "duplication_risk": false,
+          "expected_usage": false,
+          "value_for_money": false,
+          "budget_fit": false,
+          "wardrobe_gap": false
+        },
+        "context": {
+          "hasWardrobeData": false,
+          "wardrobeItemCount": 0,
+          "priceKnown": false,
+          "price": null,
+          "budgetSensitivity": "medium",
+          "categoryAverageSpend": null,
+          "identityConfidence": 0.1
+        },
+        "aiConfidence": 0.2
+      },
+      "expected": {
+        "score": 0,
+        "verdict": "WAIT",
+        "suggestedAction": "WAIT_48_HOURS",
+        "confidence": 0,
+        "confidenceLabel": "low",
+        "appliedRules": [
+          "no_wardrobe_data",
+          "price_unknown_no_price_penalty",
+          "no_assessable_signals"
+        ]
+      }
+    },
+    {
+      "name": "out_of_range_signals_are_clamped",
+      "description": "A model returning 150 or -20 must not be able to produce a score outside 0..100.",
+      "input": {
+        "signals": {
+          "style_match": 150,
+          "wardrobe_compatibility": 220,
+          "duplication_risk": -20,
+          "expected_usage": 101,
+          "value_for_money": 100,
+          "budget_fit": 100,
+          "wardrobe_gap": 100
+        },
+        "availability": {
+          "style_match": true,
+          "wardrobe_compatibility": true,
+          "duplication_risk": true,
+          "expected_usage": true,
+          "value_for_money": true,
+          "budget_fit": true,
+          "wardrobe_gap": true
+        },
+        "context": {
+          "hasWardrobeData": true,
+          "wardrobeItemCount": 5,
+          "priceKnown": true,
+          "price": 60,
+          "budgetSensitivity": "low",
+          "categoryAverageSpend": 70,
+          "identityConfidence": 2
+        },
+        "aiConfidence": 1.5
+      },
+      "expected": {
+        "score": 100,
+        "verdict": "BUY",
+        "suggestedAction": "BUY_IT",
+        "confidence": 1,
+        "confidenceLabel": "high",
+        "appliedRules": []
+      }
+    }
+  ]
+}
