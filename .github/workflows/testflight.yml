@@ -1,0 +1,283 @@
+# =============================================================================
+# BEFORE — TestFlight release.
+#
+# Deliberately NOT automatic on push. A TestFlight build burns a build number,
+# a review slot and your testers' attention, so it runs when you ask for it:
+# manually, or by pushing a version tag.
+#
+# It needs ten secrets before it will work — see docs/RELEASE.md. Until they
+# exist the job fails on the first step with a list of what is missing, which
+# is a better failure than a signing error forty minutes in.
+# =============================================================================
+
+name: TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      whats_new:
+        description: 'What to Test note for this build'
+        required: false
+        default: 'Internal build.'
+      groups:
+        description: 'Comma-separated TestFlight groups (blank = internal only)'
+        required: false
+        default: ''
+  push:
+    tags: ['v*']
+
+concurrency:
+  # Never two uploads at once: they would race for the same build number.
+  group: testflight
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Archive and upload
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    env:
+      APP_BUNDLE_ID: ${{ secrets.APP_BUNDLE_ID }}
+      TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ---------------------------------------------------------------------
+      # Fail early and legibly if the repository is not configured.
+      # ---------------------------------------------------------------------
+      - name: Check required secrets
+        env:
+          REQUIRED: >-
+            APPLE_TEAM_ID APP_BUNDLE_ID
+            BUILD_CERTIFICATE_BASE64 P12_PASSWORD
+            PROVISIONING_PROFILE_BASE64 EXTENSION_PROVISIONING_PROFILE_BASE64
+            APP_STORE_CONNECT_KEY_ID APP_STORE_CONNECT_ISSUER_ID
+            APP_STORE_CONNECT_PRIVATE_KEY
+            SUPABASE_URL SUPABASE_ANON_KEY APP_GROUP_IDENTIFIER
+          SECRETS_JSON: ${{ toJSON(secrets) }}
+        run: |
+          missing=()
+          for name in $REQUIRED; do
+            value=$(echo "$SECRETS_JSON" | python3 -c "
+          import json,sys
+          print(json.load(sys.stdin).get('$name',''))" )
+            [ -z "$value" ] && missing+=("$name")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            {
+              echo "### TestFlight is not configured yet"
+              echo ""
+              echo "Add these repository secrets (Settings → Secrets and variables → Actions):"
+              echo ""
+              for m in "${missing[@]}"; do echo "- \`$m\`"; done
+              echo ""
+              echo "Step-by-step: [docs/RELEASE.md](../blob/main/docs/RELEASE.md)"
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::missing secrets: ${missing[*]}"
+            exit 1
+          fi
+          echo "all required secrets present"
+
+      - name: Select Xcode
+        run: |
+          LATEST=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "Using $LATEST"
+          sudo xcode-select -s "$LATEST"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      # ---------------------------------------------------------------------
+      # Signing. Everything lands in a throwaway keychain that is deleted in
+      # the cleanup step, so nothing persists on the runner.
+      # ---------------------------------------------------------------------
+      - name: Import signing certificate
+        env:
+          CERT_B64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+        run: |
+          CERT_PATH="$RUNNER_TEMP/cert.p12"
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          # Random, single-use: this keychain lives for one job.
+          KEYCHAIN_PASSWORD=$(uuidgen)
+          echo "KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+
+          echo -n "$CERT_B64" | base64 --decode -o "$CERT_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$CERT_PATH" -P "$P12_PASSWORD" -A \
+            -t cert -f pkcs12 -k "$KEYCHAIN"
+          # Without this, codesign blocks on a UI prompt that never appears.
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychain -d user -s "$KEYCHAIN" login.keychain-db
+
+          rm -f "$CERT_PATH"
+          security find-identity -v -p codesigning "$KEYCHAIN"
+
+      - name: Install provisioning profiles
+        env:
+          APP_PROFILE_B64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+          EXT_PROFILE_B64: ${{ secrets.EXTENSION_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          DEST=~/Library/MobileDevice/Provisioning\ Profiles
+          mkdir -p "$DEST"
+
+          install_profile () {
+            local b64="$1" label="$2"
+            local tmp="$RUNNER_TEMP/$label.mobileprovision"
+            echo -n "$b64" | base64 --decode -o "$tmp"
+            # Xcode finds profiles by UUID, not filename.
+            local uuid
+            uuid=$(security cms -D -i "$tmp" \
+              | plutil -extract UUID raw -o - -)
+            local name
+            name=$(security cms -D -i "$tmp" | plutil -extract Name raw -o - -)
+            cp "$tmp" "$DEST/$uuid.mobileprovision"
+            echo "$label: $name ($uuid)"
+            echo "${label}_PROFILE_NAME=$name" >> "$GITHUB_ENV"
+          }
+
+          install_profile "$APP_PROFILE_B64" "APP"
+          install_profile "$EXT_PROFILE_B64" "EXT"
+
+      # ---------------------------------------------------------------------
+      # Configure and generate
+      # ---------------------------------------------------------------------
+      - name: Write Config.xcconfig
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          APP_GROUP_IDENTIFIER: ${{ secrets.APP_GROUP_IDENTIFIER }}
+          TERMS_URL: ${{ secrets.TERMS_URL }}
+          PRIVACY_URL: ${{ secrets.PRIVACY_URL }}
+          SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
+        run: |
+          # `//` starts a comment in xcconfig, hence URL_SLASHES.
+          {
+            echo "URL_SLASHES = //"
+            echo "APP_BUNDLE_ID = $APP_BUNDLE_ID"
+            echo "APP_GROUP_IDENTIFIER = $APP_GROUP_IDENTIFIER"
+            echo "SUPABASE_URL = ${SUPABASE_URL/:\/\//:\$(URL_SLASHES)}"
+            echo "SUPABASE_ANON_KEY = $SUPABASE_ANON_KEY"
+            echo "TERMS_URL = ${TERMS_URL/:\/\//:\$(URL_SLASHES)}"
+            echo "PRIVACY_URL = ${PRIVACY_URL/:\/\//:\$(URL_SLASHES)}"
+            echo "SUPPORT_EMAIL = $SUPPORT_EMAIL"
+          } > ios/Config.xcconfig
+          # Print the keys only. The anon key is publishable, but a log is not
+          # the place to normalise printing credentials.
+          cut -d= -f1 ios/Config.xcconfig
+
+      - name: Generate the Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      # ---------------------------------------------------------------------
+      # Archive
+      # ---------------------------------------------------------------------
+      - name: Archive
+        env:
+          MARKETING_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '1.0' }}
+        run: |
+          # github.run_number always increases, which is the one thing App Store
+          # Connect requires of a build number.
+          BUILD_NUMBER=${{ github.run_number }}
+          VERSION="${MARKETING_VERSION#v}"
+          echo "Archiving $VERSION ($BUILD_NUMBER)"
+
+          xcodebuild archive \
+            -project ios/BEFORE.xcodeproj \
+            -scheme BEFORE \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/BEFORE.xcarchive" \
+            -skipPackagePluginValidation \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            CODE_SIGN_STYLE=Manual \
+            OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN"
+
+      - name: Export IPA
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>uploadSymbols</key><true/>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>$APP_BUNDLE_ID</key><string>$APP_PROFILE_NAME</string>
+              <key>$APP_BUNDLE_ID.ShareExtension</key><string>$EXT_PROFILE_NAME</string>
+            </dict>
+          </dict>
+          </plist>
+          PLIST
+
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/BEFORE.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -allowProvisioningUpdates
+
+          ls -lh "$RUNNER_TEMP/export"
+
+      # ---------------------------------------------------------------------
+      # Upload
+      # ---------------------------------------------------------------------
+      - name: Upload to TestFlight
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          # altool looks for the key in one of a few fixed locations.
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo -n "$PRIVATE_KEY" > ~/.appstoreconnect/private_keys/AuthKey_$KEY_ID.p8
+
+          IPA=$(find "$RUNNER_TEMP/export" -name '*.ipa' | head -1)
+          [ -n "$IPA" ] || { echo "::error::no .ipa produced"; exit 1; }
+
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA" \
+            --apiKey "$KEY_ID" \
+            --apiIssuer "$ISSUER_ID"
+
+          rm -f ~/.appstoreconnect/private_keys/AuthKey_$KEY_ID.p8
+
+      - name: Summary
+        if: success()
+        run: |
+          {
+            echo "### Uploaded to TestFlight"
+            echo ""
+            echo "- build \`${{ github.run_number }}\` from \`${{ github.sha }}\`"
+            echo "- processing takes 5-15 minutes before it appears to testers"
+            echo ""
+            echo "**What to Test**"
+            echo "> ${{ inputs.whats_new || 'Build from a version tag.' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ---------------------------------------------------------------------
+      # Always remove the signing material, including on failure.
+      # ---------------------------------------------------------------------
+      - name: Clean up signing material
+        if: always()
+        run: |
+          security delete-keychain "$KEYCHAIN" 2>/dev/null || true
+          rm -rf ~/Library/MobileDevice/Provisioning\ Profiles
+          rm -f ~/.appstoreconnect/private_keys/*.p8
+          echo "signing material removed"

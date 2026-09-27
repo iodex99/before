@@ -345,7 +345,7 @@ struct ExportDocument: Identifiable {
 /// sheet. A file rather than a string: an export is a document someone keeps.
 struct ExportShareSheet: View {
     let document: ExportDocument
-    @Environment(.dismiss) private var dismiss
+    @Environment(\.dismiss) private var dismiss
 
     private var fileURL: URL? {
         let name = "before-export-(ISO8601DateFormatter().string(from: .now).prefix(10)).json"

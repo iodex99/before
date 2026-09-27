@@ -191,6 +191,7 @@ so drift fails a build rather than reaching a user. See DECISIONS.md §2.
 | [docs/PRIVACY.md](docs/PRIVACY.md) | what is stored, what is not, deletion order |
 | [docs/LIMITS.md](docs/LIMITS.md) | quota, rate limits, what "unlimited" means |
 | [docs/APP_STORE.md](docs/APP_STORE.md) | listing draft and review notes |
+| [docs/RELEASE.md](docs/RELEASE.md) | TestFlight: the twelve secrets and how to make them |
 | [DECISIONS.md](DECISIONS.md) | every non-obvious choice and its trade-off |
 | [TODO.md](TODO.md) | what is deliberately not built, and what is unverified |
 

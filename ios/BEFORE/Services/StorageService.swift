@@ -25,7 +25,10 @@ public struct StorageService: ImageUploading {
     private let tokenProvider: TokenProviding
     private let session: URLSession
 
-    public init(
+    /// Internal rather than public: the defaults read `AppConfig`, which is
+    /// app-internal, and Swift will not let a public signature depend on an
+    /// internal type. Nothing outside this target constructs one.
+    init(
         supabaseURL: URL = AppConfig.supabaseURL,
         anonKey: String = AppConfig.supabaseAnonKey,
         tokenProvider: TokenProviding,

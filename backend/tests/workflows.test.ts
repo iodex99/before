@@ -115,15 +115,67 @@ test('every workflow requests least-privilege permissions', () => {
   }
 });
 
-test('every workflow cancels superseded runs', () => {
+test('every workflow serialises, and only the safe ones cancel', () => {
+  // Two different rules, and the difference matters. A CI run is cheap and
+  // idempotent, so a superseded one should be cancelled. A release run is
+  // neither: cancelling an upload midway burns a build number and can leave
+  // App Store Connect holding a half-delivered build. Those must queue.
+  const RELEASE_WORKFLOWS = new Set(['testflight.yml']);
+
   for (const { file, doc } of workflows) {
     assert.ok(doc.concurrency?.group, `${file} has no concurrency group`);
-    assert.equal(
-      doc.concurrency?.['cancel-in-progress'],
-      true,
-      `${file} does not cancel superseded runs`,
-    );
+
+    if (RELEASE_WORKFLOWS.has(file)) {
+      assert.equal(
+        doc.concurrency?.['cancel-in-progress'],
+        false,
+        `${file} is a release workflow and must queue rather than cancel`,
+      );
+    } else {
+      assert.equal(
+        doc.concurrency?.['cancel-in-progress'],
+        true,
+        `${file} does not cancel superseded runs`,
+      );
+    }
   }
+});
+
+test('the release workflow is never triggered by an ordinary push', () => {
+  // A TestFlight build costs a build number, a processing slot, and a
+  // notification to every tester. It happens when someone asks for it.
+  const release = workflows.find((w) => w.file === 'testflight.yml');
+  assert.ok(release, 'testflight.yml not found');
+
+  const triggers = (release.doc.on ?? (release.doc as Record<string, unknown>)[String(true)]) as
+    | Record<string, unknown>
+    | undefined;
+  assert.ok(triggers, 'no triggers declared');
+
+  assert.ok('workflow_dispatch' in triggers, 'release must be runnable manually');
+
+  const push = triggers.push as { branches?: string[]; tags?: string[] } | undefined;
+  if (push) {
+    assert.ok(!push.branches, 'the release workflow must not trigger on a branch push');
+    assert.ok(push.tags?.length, 'a push trigger on the release workflow must be tag-only');
+  }
+});
+
+test('the release workflow cleans up signing material even on failure', () => {
+  const release = workflows.find((w) => w.file === 'testflight.yml');
+  assert.ok(release);
+
+  const cleanup = (release.doc.jobs?.release?.steps ?? []).find((s) =>
+    /clean up signing/i.test(s.name ?? ''),
+  ) as (Step & { if?: string }) | undefined;
+
+  assert.ok(cleanup, 'no cleanup step');
+  assert.equal(
+    (cleanup as Record<string, unknown>).if,
+    'always()',
+    'a signing keychain left behind on a failed run is a credential left on a runner',
+  );
+  assert.match(cleanup.run ?? '', /delete-keychain/);
 });
 
 // ---------------------------------------------------------------------------

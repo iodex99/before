@@ -43,7 +43,10 @@ public final class AuthService: NSObject {
     /// elsewhere from being replayed here.
     private var currentNonce: String?
 
-    public init(
+    /// Internal rather than public: the defaults read `AppConfig`, which is
+    /// app-internal, and Swift will not let a public signature depend on an
+    /// internal type. Nothing outside this target constructs one.
+    init(
         keychain: KeychainStore = KeychainStore(),
         supabaseURL: URL = AppConfig.supabaseURL,
         anonKey: String = AppConfig.supabaseAnonKey,

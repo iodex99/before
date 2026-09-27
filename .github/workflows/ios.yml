@@ -44,7 +44,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.app
+        # Pick the newest installed Xcode rather than naming a point release:
+        # the runner image renames these between updates.
+        run: |
+          LATEST=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "Using $LATEST"
+          sudo xcode-select -s "$LATEST"
+          xcodebuild -version
 
       - run: swift --version
 
@@ -65,7 +71,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.app
+        # Pick the newest installed Xcode rather than naming a point release:
+        # the runner image renames these between updates.
+        run: |
+          LATEST=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "Using $LATEST"
+          sudo xcode-select -s "$LATEST"
+          xcodebuild -version
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -91,27 +103,26 @@ jobs:
         run: xcodegen generate
 
       - name: Build
+        # No `| xcbeautify` and no `|| fallback`. The first version had both:
+        # xcbeautify was not installed, so the pipeline failed, the fallback ran
+        # a second build, and *its* unrelated destination error was the only
+        # thing visible — burying six real compile errors from the first build.
+        # A build step should fail with the compiler's own message.
         run: |
-          set -o pipefail
           xcodebuild build \
             -project ios/BEFORE.xcodeproj \
             -scheme BEFORE \
             -destination 'generic/platform=iOS Simulator' \
             -skipPackagePluginValidation \
-            CODE_SIGNING_ALLOWED=NO \
-            | xcbeautify || xcodebuild build \
-              -project ios/BEFORE.xcodeproj \
-              -scheme BEFORE \
-              -destination 'generic/platform=iOS Simulator' \
-              CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO
 
-      - name: Upload build log on failure
+      - name: Summarise compile errors
         if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: ~/Library/Logs/DiagnosticReports
-          if-no-files-found: ignore
+        # Surfaces the distinct errors in the job summary, so a failure is
+        # readable without downloading a 4MB log.
+        run: |
+          echo "### Build failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "Re-run locally with: \`make ios-build\`" >> "$GITHUB_STEP_SUMMARY"
 
   # ---------------------------------------------------------------------------
   # Unit and UI tests on a simulator.
@@ -125,7 +136,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.app
+        # Pick the newest installed Xcode rather than naming a point release:
+        # the runner image renames these between updates.
+        run: |
+          LATEST=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "Using $LATEST"
+          sudo xcode-select -s "$LATEST"
+          xcodebuild -version
 
       - name: Install XcodeGen
         run: brew install xcodegen

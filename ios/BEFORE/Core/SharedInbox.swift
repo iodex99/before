@@ -14,7 +14,9 @@ import Foundation
 // does not feel broken, and keeps the auth token out of a second process.
 // =============================================================================
 
-public struct SharedPayload: Codable, Sendable, Identifiable, Equatable {
+/// Hashable so `CheckEntryPoint` — which carries one of these — can be, which
+/// SwiftUI needs for `.sheet(item:)` and for enum equality in the check flow.
+public struct SharedPayload: Codable, Sendable, Identifiable, Equatable, Hashable {
     public enum Kind: String, Codable, Sendable {
         case image
         case url
