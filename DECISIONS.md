@@ -413,7 +413,78 @@ switched off.
 
 ---
 
-## 31. What could not be verified in this environment
+## 32. Prices stay at $6.99 / $59.99 — the cost model says they are right
+
+Measured rather than guessed: `backend/scripts/cost-model.mjs` builds the real
+prompt through `buildAnalysisPrompt()` and prices it at Anthropic list rates.
+
+| | |
+| --- | --- |
+| Cost per analysis (Sonnet 5, 70% cache hit) | **$0.0315** |
+| Contribution, $6.99/mo at Apple 15% | **$5.56 — 79.6% margin** |
+| Break-even usage, yearly plan | ~130 analyses/month |
+| Typical usage | ~12 analyses/month |
+| Break-even free→paid conversion | 1.2% |
+
+At 80% margin the AI is not the constraint; CAC and churn are. Raising prices
+would buy margin the product does not need and cost conversion it does. The
+model is re-runnable with different assumptions rather than being a snapshot in
+a document:
+
+```bash
+node backend/scripts/cost-model.mjs --usage 25 --monthly 8.99 --image-px 1280
+```
+
+**The one number that is an assumption, not a measurement:** output tokens at
+`effort=medium`. Output is 62% of the cost, and the 1,400-token estimate for
+adaptive thinking could not be verified without a live key. `ai_call_log`
+already records real `input_tokens`, `output_tokens` and `estimated_cost_usd`
+per call, so the first day of real traffic replaces the estimate.
+
+---
+
+## 33. A fair-use ceiling on Plus, because "unlimited" was a real liability
+
+The cost model surfaced a hole that had nothing to do with pricing. The only
+ceiling on a Plus account was `RATE_LIMIT_ANALYSES_PER_DAY=120`, which permits
+**3,600 analyses a month — about 27× break-even**. One determined account on the
+yearly plan could cost **-$109/month**.
+
+Fixed with a monthly fair-use ceiling of **100**, and the daily limit dropped
+from 120 to 40 (a day is not a sensible unit in which to control a monthly
+cost). A test asserts the daily limit can never on its own exceed the monthly
+one, and another asserts the ceiling stays below break-even.
+
+Three decisions inside that:
+
+- **Fair use is a distinct error code**, `fair_use_exceeded` (429), not
+  `quota_exceeded` (402). One is an upgrade offer; the other is someone who
+  already pays and must not be upsold. Collapsing them would nag a customer.
+- **No counter is shown**, until the remainder drops below ten. A running
+  countdown on a plan sold as "unlimited" reads as a lie.
+- **It is documented** in `docs/LIMITS.md` with the reasoning, because spec §52
+  forbids advertising unlimited over a cap that exists.
+
+---
+
+## 34. Upload resolution is a cost decision: 2200px → 1568px
+
+Claude bills vision at roughly one token per 28×28 patch, so tokens scale with
+*area*. At 2200px a product photo was **4,630 tokens — 66% of the entire input**.
+Sonnet 5 accepts up to 2576px, so nothing was downsampling it for us; every
+extra pixel was billed.
+
+1568px keeps weave, stitching and hardware legible for what BEFORE actually
+judges — colour, silhouette, category, duplication — and takes **~19% off the
+cost of an analysis**. 1280px would save more and is Claude's own documented
+default, but 1568 leaves headroom for material questions.
+
+The share extension's reducer was changed to match, so a shared screenshot and
+a picked photo cost the same.
+
+---
+
+## 35. What could not be verified in this environment
 
 Built on Windows with Node 22. No Xcode, no Swift toolchain, no Supabase project.
 

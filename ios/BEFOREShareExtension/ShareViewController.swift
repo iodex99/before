@@ -259,7 +259,9 @@ enum ShareExtensionConfig {
 /// app module, and a share extension has a much smaller memory budget than an
 /// app. This does the one thing that matters — keep the shared container small.
 enum ShareImageReducer {
-    static func reduce(_ data: Data, maxPixelSize: CGFloat = 2200) -> Data? {
+    /// Must match ImageProcessor.maximumDimension — a shared screenshot and a
+    /// picked photo should cost the same.
+    static func reduce(_ data: Data, maxPixelSize: CGFloat = 1568) -> Data? {
         guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary)
         else { return data }
 

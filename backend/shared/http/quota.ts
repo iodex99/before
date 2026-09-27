@@ -24,22 +24,50 @@ export interface UsageCounts {
 
 export interface QuotaDecision {
   allowed: boolean;
-  /** null when there is no monthly cap (Plus). */
+  /** The free plan's monthly cap. null for Plus, which has no plan limit. */
   limit: number | null;
   remaining: number | null;
+  /**
+   * True when a Plus subscriber has passed the fair-use ceiling.
+   *
+   * Distinct from `!allowed` on the free plan: that is an upgrade prompt, this
+   * is someone who already pays and needs a different answer.
+   */
+  fairUseExceeded: boolean;
 }
 
+/**
+ * Decide whether this analysis may run.
+ *
+ * Two different limits, and conflating them would be a product error:
+ *
+ *   FREE PLAN CAP  — 5 a month. Hitting it is an offer; the answer is Plus.
+ *   FAIR USE       — a ceiling on Plus. Hitting it is not an upsell, because
+ *                    they already pay.
+ *
+ * The fair-use ceiling exists for a measured reason. At the unit cost in
+ * backend/scripts/cost-model.mjs, a yearly subscriber stops being profitable
+ * somewhere above 130 analyses a month. Without a monthly ceiling the daily
+ * rate limit alone permitted 3,600, which is roughly 27x break-even and a
+ * three-figure monthly loss on a single account.
+ *
+ * It is set far above genuine use — typical is around a dozen a month — and it
+ * is disclosed in docs/LIMITS.md, because spec §52 forbids advertising
+ * "unlimited" over a cap that actually exists.
+ */
 export function evaluateQuota(
   counts: UsageCounts,
   isPlus: boolean,
   config: QuotaConfig,
 ): QuotaDecision {
   if (isPlus) {
-    return { allowed: true, limit: null, remaining: null };
+    const exceeded = counts.monthUsed >= config.plusMonthlyAnalyses;
+    return { allowed: !exceeded, limit: null, remaining: null, fairUseExceeded: exceeded };
   }
+
   const limit = config.freeMonthlyAnalyses;
   const remaining = Math.max(0, limit - counts.monthUsed);
-  return { allowed: remaining > 0, limit, remaining };
+  return { allowed: remaining > 0, limit, remaining, fairUseExceeded: false };
 }
 
 /**

@@ -313,6 +313,15 @@ export interface UsageResponse {
   limit: number | null;
   remaining: number | null;
   isPlus: boolean;
+  /**
+   * The Plus fair-use ceiling and what is left of it. Null for free users.
+   *
+   * Carried so the app can warn someone BEFORE they hit a wall. It is not
+   * shown routinely — a counter on an "unlimited" plan reads as a lie — only
+   * when the remainder gets small.
+   */
+  fairUseLimit: number | null;
+  fairUseRemaining: number | null;
 }
 
 export interface MeResponse {
@@ -331,6 +340,7 @@ export const API_ERROR_CODES = [
   'unauthorized',
   'forbidden',
   'quota_exceeded',
+  'fair_use_exceeded',
   'rate_limited',
   'invalid_request',
   'image_too_large',

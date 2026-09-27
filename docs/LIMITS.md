@@ -50,12 +50,34 @@ cap: an offer, not an error.
 
 ---
 
+## Fair use on Plus — 100 analyses a month
+
+Plus has no *plan* limit: you are not counting down against an allowance, and
+the app shows no counter. It does have a **fair-use ceiling of 100 analyses a
+month**, and this page exists because spec §52 forbids advertising "unlimited"
+over a cap that really exists.
+
+The number is not arbitrary. At the measured unit cost
+(`backend/scripts/cost-model.mjs`), a yearly subscriber stops paying for
+themselves somewhere above **130 analyses a month**. Typical use is around **12**.
+The ceiling sits at 100 — roughly 8× a heavy genuine user, and below the point
+where an account costs more than it brings in.
+
+Hitting it returns **429** `fair_use_exceeded` with a `Retry-After` pointing at
+the start of next month. It is deliberately *not* an upsell: the person already
+pays. The app warns once the remainder drops below ten, and says nothing before
+that.
+
+> **Why this exists.** Before it, the daily limit of 120 was the only ceiling,
+> which permitted 3,600 analyses a month — about 27× break-even, and a
+> three-figure monthly loss on a single determined account.
+
 ## Anti-abuse limits — everyone, Plus included
 
 | Limit | Default | Environment variable |
 | --- | --- | --- |
 | Analyses per minute | 6 | `RATE_LIMIT_ANALYSES_PER_MINUTE` |
-| Analyses per day | 120 | `RATE_LIMIT_ANALYSES_PER_DAY` |
+| Analyses per day | 40 | `RATE_LIMIT_ANALYSES_PER_DAY` |
 | Concurrent analyses | 2 | `MAX_CONCURRENT_ANALYSES` |
 | Upload size | 6 MB | `MAX_UPLOAD_BYTES` |
 | Metadata fetches per minute | 20 | `RATE_LIMIT_METADATA_PER_MINUTE` |
@@ -63,10 +85,11 @@ cap: an offer, not an error.
 Each returns a real `429` with a `Retry-After` header. (The wardrobe cap above is
 not in this table: it is a plan limit and returns `402`, not `429`.)
 
-**This is why the product says "unlimited checks" and this page says 120 a day.**
-Spec §52 is explicit: do not advertise unlimited if a cap exists. 120 analyses in
-a single day is far beyond any genuine shopping session. The ceiling is there to
-stop a runaway client or a scripted key, not a customer.
+The daily limit is **burst protection**, not the financial ceiling — that job
+belongs to the monthly fair-use limit above. It was lowered from 120 to 40 when
+the monthly ceiling landed, because a day is not a sensible unit in which to
+control a monthly cost. A test asserts the daily limit can never on its own
+exceed the monthly one.
 
 ---
 
@@ -75,10 +98,13 @@ stop a runaway client or a scripted key, not a customer.
 | Situation | Status | Client behaviour |
 | --- | --- | --- |
 | Free allowance used up | **402** `quota_exceeded` | show the paywall |
+| Plus fair use reached | **429** `fair_use_exceeded` | explain, do NOT upsell |
 | Rate limit hit | **429** `rate_limited` | back off using `Retry-After` |
 
-One is an offer, the other is a wait. Conflating them either nags a paying
-customer with an upgrade prompt or hides the upgrade from someone who wants it.
+Three different answers. Conflating the first two either nags a paying customer
+with an upgrade prompt or hides the upgrade from someone who wants it; conflating
+the last two tells someone to wait sixty seconds for something that resets in
+three weeks.
 
 ---
 

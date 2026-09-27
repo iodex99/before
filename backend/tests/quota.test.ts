@@ -18,7 +18,8 @@ import { API_ERROR_CODES } from '../shared/types.ts';
 const quotaConfig = {
   freeMonthlyAnalyses: 5,
   analysesPerMinute: 6,
-  analysesPerDay: 120,
+  analysesPerDay: 40,
+  plusMonthlyAnalyses: 100,
   metadataPerMinute: 20,
   maxUploadBytes: 6 * 1024 * 1024,
   maxConcurrentAnalyses: 2,
@@ -37,12 +38,69 @@ test('a free user gets five checks a month', () => {
     allowed: true,
     limit: 5,
     remaining: 5,
+    fairUseExceeded: false,
   });
   assert.deepEqual(evaluateQuota(counts({ monthUsed: 4 }), false, quotaConfig), {
     allowed: true,
     limit: 5,
     remaining: 1,
+    fairUseExceeded: false,
   });
+});
+
+// ---------------------------------------------------------------------------
+// Fair use — the ceiling that keeps a single Plus account from costing more
+// than it pays. See evaluateQuota() and docs/LIMITS.md.
+// ---------------------------------------------------------------------------
+
+test('Plus is unlimited in every realistic case', () => {
+  // Typical use is around a dozen a month. Nobody normal should ever meet the
+  // ceiling, and a test that says so is worth having.
+  for (const used of [0, 12, 50, 99]) {
+    const decision = evaluateQuota(counts({ monthUsed: used }), true, quotaConfig);
+    assert.equal(decision.allowed, true, `${used} analyses should be allowed`);
+    assert.equal(decision.fairUseExceeded, false);
+    assert.equal(decision.limit, null, 'Plus has no plan limit to display');
+  }
+});
+
+test('the fair-use ceiling stops a runaway Plus account', () => {
+  const decision = evaluateQuota(counts({ monthUsed: 100 }), true, quotaConfig);
+  assert.equal(decision.allowed, false);
+  assert.equal(decision.fairUseExceeded, true);
+});
+
+test('fair use is distinguishable from a free-plan cap', () => {
+  // These need different answers in the UI: one is an upgrade offer, the other
+  // is someone who already pays. Collapsing them would nag a paying customer.
+  const free = evaluateQuota(counts({ monthUsed: 5 }), false, quotaConfig);
+  const plus = evaluateQuota(counts({ monthUsed: 100 }), true, quotaConfig);
+
+  assert.equal(free.allowed, false);
+  assert.equal(free.fairUseExceeded, false, 'a free user has not exceeded fair use');
+  assert.equal(plus.allowed, false);
+  assert.equal(plus.fairUseExceeded, true);
+});
+
+test('the fair-use ceiling sits below the point where a subscriber loses money', () => {
+  // Break-even on the yearly plan is ~130 analyses/month at the unit cost in
+  // backend/scripts/cost-model.mjs. If the ceiling ever rises above that, a
+  // determined account becomes unprofitable and this test is the warning.
+  const YEARLY_BREAK_EVEN_ANALYSES = 130;
+  assert.ok(
+    quotaConfig.plusMonthlyAnalyses < YEARLY_BREAK_EVEN_ANALYSES,
+    `fair-use ceiling ${quotaConfig.plusMonthlyAnalyses} exceeds break-even ${YEARLY_BREAK_EVEN_ANALYSES}`,
+  );
+});
+
+test('the daily limit cannot by itself exceed the monthly ceiling', () => {
+  // The original bug: a 120/day limit with no monthly ceiling permitted 3,600
+  // a month, 27x break-even. The daily limit is burst protection; the monthly
+  // ceiling is the financial one.
+  assert.ok(
+    quotaConfig.analysesPerDay <= quotaConfig.plusMonthlyAnalyses,
+    'a single day must not be able to consume more than the whole month allows',
+  );
 });
 
 test('the fifth check is allowed and the sixth is not', () => {
@@ -56,11 +114,12 @@ test('remaining never goes negative', () => {
   assert.equal(decision.allowed, false);
 });
 
-test('a Plus user has no monthly cap', () => {
-  assert.deepEqual(evaluateQuota(counts({ monthUsed: 500 }), true, quotaConfig), {
+test('a Plus user has no PLAN limit', () => {
+  assert.deepEqual(evaluateQuota(counts({ monthUsed: 40 }), true, quotaConfig), {
     allowed: true,
     limit: null,
     remaining: null,
+    fairUseExceeded: false,
   });
 });
 
@@ -89,7 +148,7 @@ test('the per-minute limit is enforced', () => {
 
 test('the daily limit is enforced', () => {
   assert.throws(
-    () => assertWithinRateLimits(counts({ lastDayUsed: 120 }), quotaConfig),
+    () => assertWithinRateLimits(counts({ lastDayUsed: 40 }), quotaConfig),
     (error: unknown) => error instanceof ApiError && error.retryAfterSeconds === 3600,
   );
 });

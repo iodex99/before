@@ -258,6 +258,12 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
     public var limit: Int?
     public var remaining: Int?
     public var isPlus: Bool
+    /// The Plus fair-use ceiling and what is left of it. Nil for free users.
+    ///
+    /// Carried so the app can warn someone *before* they hit a wall, not shown
+    /// routinely — a counter on an "unlimited" plan reads as a lie.
+    public var fairUseLimit: Int?
+    public var fairUseRemaining: Int?
 
     public init(
         periodStart: Date,
@@ -265,7 +271,9 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
         used: Int,
         limit: Int?,
         remaining: Int?,
-        isPlus: Bool
+        isPlus: Bool,
+        fairUseLimit: Int? = nil,
+        fairUseRemaining: Int? = nil
     ) {
         self.periodStart = periodStart
         self.periodEnd = periodEnd
@@ -273,6 +281,8 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
         self.limit = limit
         self.remaining = remaining
         self.isPlus = isPlus
+        self.fairUseLimit = fairUseLimit
+        self.fairUseRemaining = fairUseRemaining
     }
 
     /// "4 of 5 checks remaining". nil for Plus, which has no number to show.
@@ -281,7 +291,19 @@ public struct UsageSnapshot: Codable, Sendable, Equatable {
         return "\(remaining) of \(limit) checks remaining"
     }
 
-    public var hasChecksLeft: Bool { isPlus || (remaining ?? 0) > 0 }
+    public var hasChecksLeft: Bool {
+        if isPlus { return (fairUseRemaining ?? 1) > 0 }
+        return (remaining ?? 0) > 0
+    }
+
+    /// Shown only once the remainder is genuinely small. A running counter on
+    /// an "unlimited" plan would read as a lie the rest of the time.
+    public var fairUseWarning: String? {
+        guard isPlus, let left = fairUseRemaining, left <= 10 else { return nil }
+        return left == 0
+            ? "You've hit this month's fair-use limit. It resets next month."
+            : "\(left) checks left this month under fair use."
+    }
 }
 
 public struct UserPreferences: Codable, Sendable, Equatable {

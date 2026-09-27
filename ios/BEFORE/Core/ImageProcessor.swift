@@ -40,9 +40,24 @@ public enum ImageProcessingError: LocalizedError {
 
 public enum ImageProcessor {
 
-    /// Fashion detail — weave, stitching, hardware — survives at this size.
-    /// Going lower saves bandwidth and costs the model the thing it is judging.
-    public static let maximumDimension: CGFloat = 2200
+    /// Longest edge of an uploaded image.
+    ///
+    /// This number is a cost decision as much as a quality one. Claude bills
+    /// vision at roughly one token per 28×28 patch, so tokens scale with AREA:
+    ///
+    ///     2200px (4:3) ≈ 4,630 tokens — 66% of the entire input
+    ///     1568px (4:3) ≈ 2,350 tokens
+    ///     1280px (4:3) ≈ 1,570 tokens
+    ///
+    /// Sonnet 5 accepts up to 2576px, so nothing downsamples this for us —
+    /// every extra pixel is billed. 1568 is the balance: it keeps weave,
+    /// stitching and hardware legible for the things BEFORE actually judges
+    /// (colour, silhouette, category, duplication) and takes ~19% off the cost
+    /// of an analysis versus 2200.
+    ///
+    /// Measured by backend/scripts/cost-model.mjs — re-run it before changing
+    /// this, and check a real analysis still reads the material correctly.
+    public static let maximumDimension: CGFloat = 1568
 
     /// Matches MAX_UPLOAD_BYTES on the server.
     public static let maximumBytes = 6 * 1024 * 1024

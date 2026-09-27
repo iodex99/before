@@ -26,7 +26,7 @@ import {
 import { durationBucket } from '../_shared/log.ts';
 
 import { ApiError, jsonResponse } from '@shared/http/errors.ts';
-import { assertWithinRateLimits, evaluateQuota } from '@shared/http/quota.ts';
+import { assertWithinRateLimits, evaluateQuota, monthWindow } from '@shared/http/quota.ts';
 import {
   selectRelevantHistory,
   selectRelevantWardrobe,
@@ -103,6 +103,14 @@ async function handler(request: Request, ctx: RequestContext): Promise<Response>
 
   const quota = evaluateQuota(counts, plus, ctx.config.quota);
   if (!quota.allowed) {
+    // A free user out of checks gets an upgrade offer. A Plus subscriber past
+    // the fair-use ceiling already pays us, so they get a different answer.
+    if (quota.fairUseExceeded) {
+      const { end } = monthWindow(new Date(), profile.timezone);
+      const secondsUntilReset = Math.max(60, Math.ceil((end.getTime() - Date.now()) / 1000));
+      ctx.log.warn('analysis.fair_use_exceeded', { isPlus: true, note: `${counts.monthUsed} this month` });
+      throw new ApiError('fair_use_exceeded', `${counts.monthUsed} used this month`, secondsUntilReset);
+    }
     throw new ApiError('quota_exceeded', `${counts.monthUsed} used this month`);
   }
 

@@ -12,6 +12,9 @@ public enum APIError: Error, Equatable, Sendable {
     case forbidden
     /// The free monthly allowance is used up. The caller shows the paywall.
     case quotaExceeded
+    /// A Plus subscriber past the monthly fair-use ceiling. NOT a paywall —
+    /// they already pay. See docs/LIMITS.md.
+    case fairUseExceeded(resetsInSeconds: TimeInterval?)
     case rateLimited(retryAfter: TimeInterval?)
     case invalidRequest(String?)
     case imageTooLarge
@@ -34,6 +37,7 @@ public enum APIError: Error, Equatable, Sendable {
         case "unauthorized": .unauthorized
         case "forbidden": .forbidden
         case "quota_exceeded": .quotaExceeded
+        case "fair_use_exceeded": .fairUseExceeded(resetsInSeconds: retryAfter)
         case "rate_limited": .rateLimited(retryAfter: retryAfter)
         case "invalid_request": .invalidRequest(nil)
         case "image_too_large": .imageTooLarge
@@ -86,6 +90,8 @@ extension APIError: LocalizedError {
             "You don't have access to that."
         case .quotaExceeded:
             "You've used all your checks this month."
+        case .fairUseExceeded:
+            "You've hit this month's fair-use limit."
         case .rateLimited:
             "Give it a moment and try again."
         case .invalidRequest(let detail):
@@ -115,6 +121,8 @@ extension APIError: LocalizedError {
     public var recoverySuggestion: String? {
         switch self {
         case .quotaExceeded: "BEFORE Plus gives you unlimited checks."
+        // Deliberately not an upsell: they already subscribe.
+        case .fairUseExceeded: "It resets at the start of next month."
         case .offline: "Your saved items and history are still here."
         case .urlUnreadable: "Some shops block automated readers."
         default: nil

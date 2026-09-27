@@ -21,6 +21,12 @@ export const ERROR_SPECS: Record<ApiErrorCode, ErrorSpec> = {
     status: 402,
     message: "You've used all your checks this month.",
   },
+  // A paying subscriber past the fair-use ceiling. Deliberately NOT an upsell
+  // and deliberately not the same message as a per-minute limit.
+  fair_use_exceeded: {
+    status: 429,
+    message: "You've hit this month's fair-use limit. It resets at the start of next month.",
+  },
   rate_limited: { status: 429, message: 'Give it a moment and try again.' },
   invalid_request: { status: 400, message: "Something about that request didn't look right." },
   image_too_large: {

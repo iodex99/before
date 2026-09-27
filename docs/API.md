@@ -33,6 +33,7 @@ Every failure has the same shape and a message written for a person.
 | `unauthorized` | 401 | refresh the session, then sign in |
 | `forbidden` | 403 | show the message |
 | `quota_exceeded` | **402** | show the paywall |
+| `fair_use_exceeded` | 429 | explain and stop — do NOT upsell, they already pay |
 | `rate_limited` | 429 | back off using `retryAfterSeconds` |
 | `invalid_request` | 400 | fix the request |
 | `image_too_large` | 413 | re-process the image |
@@ -220,14 +221,20 @@ no request that can set it.
   "periodStart": "2026-09-01T04:00:00Z",   // the USER'S calendar month
   "periodEnd": "2026-10-01T04:00:00Z",
   "used": 1,
-  "limit": 5,          // null for Plus
-  "remaining": 4,      // null for Plus
-  "isPlus": false
+  "limit": 5,             // null for Plus — no plan limit
+  "remaining": 4,         // null for Plus
+  "isPlus": false,
+  "fairUseLimit": null,   // 100 for Plus; see docs/LIMITS.md
+  "fairUseRemaining": null
 }
 ```
 
 The window is computed in the user's own timezone — in UTC, someone in Los
 Angeles loses most of the last day of every month.
+
+`fairUseLimit` / `fairUseRemaining` are populated only for Plus. The app shows
+nothing until the remainder drops below ten: a running counter on a plan sold as
+"unlimited" reads as a lie.
 
 ---
 

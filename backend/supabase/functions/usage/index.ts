@@ -30,6 +30,10 @@ async function handler(_request: Request, ctx: RequestContext): Promise<Response
     limit: quota.limit,
     remaining: quota.remaining,
     isPlus: plus,
+    fairUseLimit: plus ? ctx.config.quota.plusMonthlyAnalyses : null,
+    fairUseRemaining: plus
+      ? Math.max(0, ctx.config.quota.plusMonthlyAnalyses - counts.monthUsed)
+      : null,
   };
 
   ctx.log.info('usage.read', { isPlus: plus, quotaRemaining: quota.remaining });

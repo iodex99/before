@@ -24,6 +24,8 @@ export interface QuotaConfig {
   freeMonthlyAnalyses: number;
   analysesPerMinute: number;
   analysesPerDay: number;
+  /** Fair-use ceiling for Plus. See evaluateQuota() for why it exists. */
+  plusMonthlyAnalyses: number;
   metadataPerMinute: number;
   maxUploadBytes: number;
   maxConcurrentAnalyses: number;
@@ -181,7 +183,12 @@ export function loadConfig(env: Env): AppConfig {
     quota: {
       freeMonthlyAnalyses: integer(env, 'FREE_MONTHLY_ANALYSES', 5),
       analysesPerMinute: integer(env, 'RATE_LIMIT_ANALYSES_PER_MINUTE', 6),
-      analysesPerDay: integer(env, 'RATE_LIMIT_ANALYSES_PER_DAY', 120),
+      // Burst protection within a day. Lowered from 120 once the monthly
+      // ceiling landed: 120/day was the thing that permitted 3,600/month.
+      analysesPerDay: integer(env, 'RATE_LIMIT_ANALYSES_PER_DAY', 40),
+      // ~8x typical use, and comfortably below the ~130/month where a yearly
+      // subscriber stops paying for themselves.
+      plusMonthlyAnalyses: integer(env, 'PLUS_MONTHLY_ANALYSES', 100),
       metadataPerMinute: integer(env, 'RATE_LIMIT_METADATA_PER_MINUTE', 20),
       maxUploadBytes: integer(env, 'MAX_UPLOAD_BYTES', 6 * 1024 * 1024),
       maxConcurrentAnalyses: integer(env, 'MAX_CONCURRENT_ANALYSES', 2),
