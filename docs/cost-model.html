@@ -1,0 +1,743 @@
+<title>BEFORE Unit Economics</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+
+    --bg:        #faf8f5;
+    --surface:   #ffffff;
+    --raised:    #f4f0ea;
+    --ink:       #121212;
+    --muted:     #6b6660;
+    --faint:     #9b958d;
+    --rule:      #e6e1da;
+
+    --accent:    #6e2639;
+    --accent-dim:#f3e9ec;
+
+    --good:      #2f6b4f;
+    --good-dim:  #e7f0eb;
+    --warn:      #9a6b1f;
+    --warn-dim:  #f7eeda;
+    --bad:       #8a3d3d;
+    --bad-dim:   #f6e8e8;
+
+    --display: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg:        #121110;
+      --surface:   #1c1a18;
+      --raised:    #25221f;
+      --ink:       #f5f2ed;
+      --muted:     #9a948c;
+      --faint:     #6e6861;
+      --rule:      #2e2b27;
+      --accent:    #c4677f;
+      --accent-dim:#321c23;
+      --good:      #6fb892;
+      --good-dim:  #1b2a23;
+      --warn:      #d8a951;
+      --warn-dim:  #2b2418;
+      --bad:       #d08282;
+      --bad-dim:   #2c1d1d;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg:        #121110;
+    --surface:   #1c1a18;
+    --raised:    #25221f;
+    --ink:       #f5f2ed;
+    --muted:     #9a948c;
+    --faint:     #6e6861;
+    --rule:      #2e2b27;
+    --accent:    #c4677f;
+    --accent-dim:#321c23;
+    --good:      #6fb892;
+    --good-dim:  #1b2a23;
+    --warn:      #d8a951;
+    --warn-dim:  #2b2418;
+    --bad:       #d08282;
+    --bad-dim:   #2c1d1d;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--display);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1140px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 32px 64px;
+  }
+
+  /* ---- masthead ---- */
+
+  .masthead { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+  .wordmark {
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .22em; color: var(--accent);
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 40px); font-weight: 700; letter-spacing: -.025em;
+    margin: 6px 0 8px; text-wrap: balance;
+  }
+  .standfirst { color: var(--muted); max-width: 62ch; margin: 0 0 28px; }
+  .standfirst code {
+    font-family: var(--mono); font-size: .85em; background: var(--raised);
+    padding: 1px 5px; border-radius: 4px;
+  }
+
+  /* ---- verdict strip ---- */
+
+  .verdict {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px; background: var(--rule);
+    border: 1px solid var(--rule); border-radius: 14px; overflow: hidden;
+    margin-bottom: 28px;
+  }
+  .stat { background: var(--surface); padding: 16px 18px; }
+  .stat-label {
+    font-family: var(--mono); font-size: 10px; font-weight: 500;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--faint);
+    display: block; margin-bottom: 6px;
+  }
+  .stat-value {
+    font-family: var(--mono); font-size: 26px; font-weight: 600;
+    font-variant-numeric: tabular-nums; letter-spacing: -.02em; line-height: 1.1;
+  }
+  .stat-note { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .is-good { color: var(--good); }
+  .is-warn { color: var(--warn); }
+  .is-bad  { color: var(--bad); }
+
+  /* ---- layout ---- */
+
+  .columns { display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 860px) { .columns { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--surface); border: 1px solid var(--rule);
+    border-radius: 14px; padding: 20px;
+  }
+  .panel + .panel { margin-top: 20px; }
+
+  h2 {
+    font-family: var(--mono); font-size: 10px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--faint);
+    margin: 0 0 16px;
+  }
+
+  /* ---- controls ---- */
+
+  .ctrl { margin-bottom: 18px; }
+  .ctrl:last-child { margin-bottom: 0; }
+  .ctrl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 7px; }
+  .ctrl-name { font-size: 13px; font-weight: 500; }
+  .ctrl-val {
+    font-family: var(--mono); font-size: 13px; font-weight: 600;
+    font-variant-numeric: tabular-nums; color: var(--accent);
+  }
+  .ctrl-hint { font-size: 11px; color: var(--faint); margin-top: 5px; }
+
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 22px; background: transparent; cursor: pointer; display: block;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 3px; background: var(--rule); border-radius: 2px;
+  }
+  input[type=range]::-moz-range-track { height: 3px; background: var(--rule); border-radius: 2px; }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; margin-top: -6.5px; border-radius: 50%;
+    background: var(--accent); border: 2px solid var(--surface);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--accent); border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--accent);
+  }
+  input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
+
+  .seg { display: flex; gap: 0; border: 1px solid var(--rule); border-radius: 9px; overflow: hidden; }
+  .seg button {
+    flex: 1; border: 0; background: var(--surface); color: var(--muted);
+    font-family: var(--display); font-size: 12px; font-weight: 500;
+    padding: 8px 6px; cursor: pointer; min-height: 36px;
+  }
+  .seg button + button { border-left: 1px solid var(--rule); }
+  .seg button[aria-pressed="true"] { background: var(--accent-dim); color: var(--accent); font-weight: 600; }
+  .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  /* ---- waterfall ---- */
+
+  .flow { display: flex; flex-direction: column; gap: 9px; }
+  .flow-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; }
+  .flow-bar { height: 30px; border-radius: 5px; position: relative; overflow: hidden; min-width: 2px; }
+  .flow-bar span {
+    position: absolute; inset: 0; display: flex; align-items: center;
+    padding-left: 10px; font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+  .flow-amt {
+    font-family: var(--mono); font-size: 13px; font-weight: 600;
+    font-variant-numeric: tabular-nums; text-align: right; min-width: 74px;
+  }
+
+  /* ---- chart ---- */
+
+  .chart-wrap { overflow-x: auto; }
+  svg { display: block; max-width: 100%; height: auto; }
+  .ax { stroke: var(--rule); stroke-width: 1; }
+  .grid { stroke: var(--rule); stroke-width: 1; stroke-dasharray: 2 4; }
+  .tick { font-family: var(--mono); font-size: 10px; fill: var(--faint); }
+  .anno { font-family: var(--mono); font-size: 10px; font-weight: 600; }
+
+  /* ---- table ---- */
+
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 460px; }
+  th, td { text-align: right; padding: 9px 10px; border-bottom: 1px solid var(--rule); }
+  th:first-child, td:first-child { text-align: left; }
+  th {
+    font-family: var(--mono); font-size: 10px; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--faint);
+  }
+  td { font-variant-numeric: tabular-nums; }
+  td.num { font-family: var(--mono); }
+  tbody tr:last-child td { border-bottom: 0; }
+
+  /* ---- callout ---- */
+
+  .note {
+    border-left: 2px solid var(--accent); padding: 2px 0 2px 14px;
+    color: var(--muted); font-size: 13px; margin-top: 18px;
+  }
+  .note strong { color: var(--ink); font-weight: 600; }
+
+  footer {
+    margin-top: 32px; padding-top: 18px; border-top: 1px solid var(--rule);
+    font-size: 12px; color: var(--faint); line-height: 1.7;
+  }
+  footer code { font-family: var(--mono); }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="masthead"><span class="wordmark">BEFORE</span></div>
+    <h1>What an analysis costs, and what a subscriber is worth</h1>
+    <p class="standfirst">
+      Token counts measured from the real prompt in <code>buildAnalysisPrompt()</code>.
+      Drag anything to re-run the model.
+    </p>
+  </header>
+
+  <section class="verdict" aria-label="Headline figures">
+    <div class="stat">
+      <span class="stat-label">Cost / analysis</span>
+      <div class="stat-value" id="v-unit">—</div>
+      <div class="stat-note" id="v-unit-note">—</div>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Contribution</span>
+      <div class="stat-value" id="v-contrib">—</div>
+      <div class="stat-note">per subscriber / month</div>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Margin</span>
+      <div class="stat-value" id="v-margin">—</div>
+      <div class="stat-note" id="v-margin-note">—</div>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Break-even use</span>
+      <div class="stat-value" id="v-breakeven">—</div>
+      <div class="stat-note" id="v-breakeven-note">—</div>
+    </div>
+    <div class="stat">
+      <span class="stat-label">CAC payback</span>
+      <div class="stat-value" id="v-payback">—</div>
+      <div class="stat-note" id="v-payback-note">—</div>
+    </div>
+  </section>
+
+  <div class="columns">
+
+    <!-- ------------------------------------------------ controls -->
+    <div>
+      <div class="panel">
+        <h2>Pricing</h2>
+
+        <div class="ctrl">
+          <div class="ctrl-head"><label class="ctrl-name" for="c-monthly">Monthly price</label>
+            <span class="ctrl-val" id="o-monthly"></span></div>
+          <input type="range" id="c-monthly" min="2.99" max="19.99" step="1" value="6.99">
+        </div>
+
+        <div class="ctrl">
+          <div class="ctrl-head"><label class="ctrl-name" for="c-yearly">Yearly price</label>
+            <span class="ctrl-val" id="o-yearly"></span></div>
+          <input type="range" id="c-yearly" min="19.99" max="149.99" step="10" value="59.99">
+          <div class="ctrl-hint" id="h-yearly"></div>
+        </div>
+
+        <div class="ctrl">
+          <div class="ctrl-head"><span class="ctrl-name">Apple's cut</span>
+            <span class="ctrl-val" id="o-apple"></span></div>
+          <div class="seg" role="group" aria-label="Apple commission">
+            <button type="button" data-apple="0.15" aria-pressed="true">15% Small Business</button>
+            <button type="button" data-apple="0.30" aria-pressed="false">30% standard</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Usage</h2>
+
+        <div class="ctrl">
+          <div class="ctrl-head"><label class="ctrl-name" for="c-usage">Analyses / month</label>
+            <span class="ctrl-val" id="o-usage"></span></div>
+          <input type="range" id="c-usage" min="1" max="150" step="1" value="12">
+          <div class="ctrl-hint" id="h-usage"></div>
+        </div>
+
+        <div class="ctrl">
+          <div class="ctrl-head"><label class="ctrl-name" for="c-conv">Free → paid conversion</label>
+            <span class="ctrl-val" id="o-conv"></span></div>
+          <input type="range" id="c-conv" min="0.5" max="20" step="0.5" value="5">
+          <div class="ctrl-hint" id="h-conv"></div>
+        </div>
+
+        <div class="ctrl">
+          <div class="ctrl-head"><label class="ctrl-name" for="c-cac">Cost to acquire</label>
+            <span class="ctrl-val" id="o-cac"></span></div>
+          <input type="range" id="c-cac" min="0" max="80" step="2" value="20">
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Pipeline</h2>
+
+        <div class="ctrl">
+          <div class="ctrl-head"><span class="ctrl-name">Model</span>
+            <span class="ctrl-val" id="o-model"></span></div>
+          <div class="seg" role="group" aria-label="Model">
+            <button type="button" data-model="sonnet5" aria-pressed="true">Sonnet 5</button>
+            <button type="button" data-model="opus5" aria-pressed="false">Opus 5</button>
+          </div>
+        </div>
+
+        <div class="ctrl">
+          <div class="ctrl-head"><label class="ctrl-name" for="c-image">Upload long edge</label>
+            <span class="ctrl-val" id="o-image"></span></div>
+          <input type="range" id="c-image" min="768" max="2576" step="64" value="1568">
+          <div class="ctrl-hint" id="h-image"></div>
+        </div>
+
+        <div class="ctrl">
+          <div class="ctrl-head"><label class="ctrl-name" for="c-cache">Cache hit rate</label>
+            <span class="ctrl-val" id="o-cache"></span></div>
+          <input type="range" id="c-cache" min="0" max="100" step="5" value="70">
+          <div class="ctrl-hint">System prompt + tool schema are identical for every user.</div>
+        </div>
+
+        <div class="ctrl">
+          <div class="ctrl-head"><label class="ctrl-name" for="c-think">Thinking tokens</label>
+            <span class="ctrl-val" id="o-think"></span></div>
+          <input type="range" id="c-think" min="0" max="4000" step="100" value="1400">
+          <div class="ctrl-hint" id="h-think"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ------------------------------------------------ results -->
+    <div>
+      <div class="panel">
+        <h2>Where the monthly subscription goes</h2>
+        <div class="flow" id="flow"></div>
+        <div class="note" id="flow-note"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Margin against usage</h2>
+        <div class="chart-wrap"><svg id="chart" viewBox="0 0 640 260" role="img"
+          aria-label="Contribution margin plotted against analyses per month"></svg></div>
+      </div>
+
+      <div class="panel">
+        <h2>Token budget per analysis</h2>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Component</th><th>Tokens</th><th>Share</th><th>Cost</th></tr></thead>
+            <tbody id="tokens"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Per free signup</h2>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Conversion</th><th>Paid share</th><th>Free cost</th><th>Net / signup</th></tr></thead>
+            <tbody id="funnel"></tbody>
+          </table>
+        </div>
+        <div class="note" id="funnel-note"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Anthropic list prices, June 2026: Sonnet 5 $2/$10 per MTok, Opus 5 $5/$25; cache writes 1.25&times;, reads 0.1&times;.
+    Apple 15% under the Small Business Program, 30% otherwise. Supabase Pro $25/month plus usage.
+    Vision billed at roughly one token per 28&times;28 patch.
+    Text tokens measured from the live prompt builder at ~4 characters per token, &plusmn;15%.
+    Thinking tokens are the one estimate here — <code>ai_call_log</code> records the real figure from day one.
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // Mirrors backend/scripts/cost-model.mjs. Text token counts were measured by
+  // running the real buildAnalysisPrompt().
+  var TOK = { system: 889, schema: 982, userPrompt: 555, result: 550 };
+  var PRICE = {
+    sonnet5: { input: 2, output: 10, cacheWrite: 2.5, cacheRead: 0.2, label: 'Sonnet 5' },
+    opus5:   { input: 5, output: 25, cacheWrite: 6.25, cacheRead: 0.5, label: 'Opus 5' }
+  };
+  var SUPABASE_FIXED = 25;
+  var FREE_CHECKS = 5;
+  var AVG_FREE_USE = 2.2;
+  var FAIR_USE_CEILING = 100;
+
+  var state = { monthly: 6.99, yearly: 59.99, apple: 0.15, usage: 12, conv: 5,
+                cac: 20, model: 'sonnet5', image: 1568, cache: 70, think: 1400 };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var money = function (n, dp) { return '$' + n.toFixed(dp === undefined ? 2 : dp); };
+  var pct = function (n) { return (n * 100).toFixed(1) + '%'; };
+
+  function imageTokens(longEdge) {
+    return Math.round((longEdge * Math.round(longEdge * 0.75)) / 784);
+  }
+
+  function model() {
+    var p = PRICE[state.model];
+    var img = imageTokens(state.image);
+    var cacheable = TOK.system + TOK.schema;
+    var volatile = TOK.userPrompt + img;
+    var outputTok = TOK.result + state.think;
+    var hit = state.cache / 100;
+
+    var per = function (t, rate) { return (t / 1e6) * rate; };
+
+    var cachedCost = hit * per(cacheable, p.cacheRead) + (1 - hit) * per(cacheable, p.cacheWrite);
+    var volatileCost = per(volatile, p.input);
+    var outputCost = per(outputTok, p.output);
+    var unit = cachedCost + volatileCost + outputCost;
+
+    // Storage and egress. Small, but it is not zero and the model shouldn't pretend.
+    var infra = ((state.usage * 0.5 * 0.4) / 1024) * 0.021 + ((state.usage * 1.2) / 1024) * 0.09;
+
+    var net = state.monthly * (1 - state.apple);
+    var ai = unit * state.usage;
+    var contribution = net - ai - infra;
+
+    var yearlyNetMonth = (state.yearly * (1 - state.apple)) / 12;
+    var breakeven = Math.floor((net - infra) / unit);
+    var breakevenYear = Math.floor((yearlyNetMonth - infra) / unit);
+
+    return {
+      p: p, img: img, cacheable: cacheable, volatile: volatile, outputTok: outputTok,
+      cachedCost: cachedCost, volatileCost: volatileCost, outputCost: outputCost,
+      unit: unit, infra: infra, net: net, ai: ai, contribution: contribution,
+      margin: contribution / state.monthly, breakeven: breakeven,
+      breakevenYear: breakevenYear, yearlyNetMonth: yearlyNetMonth,
+      payback: contribution > 0 ? state.cac / contribution : Infinity
+    };
+  }
+
+  function tone(el, cls) {
+    el.classList.remove('is-good', 'is-warn', 'is-bad');
+    if (cls) el.classList.add(cls);
+  }
+
+  // ---- headline -----------------------------------------------------------
+
+  function renderVerdict(m) {
+    $('v-unit').textContent = money(m.unit, 4);
+    $('v-unit-note').textContent = m.p.label + ', ' + state.cache + '% cache';
+
+    var c = $('v-contrib');
+    c.textContent = money(m.contribution);
+    tone(c, m.contribution <= 0 ? 'is-bad' : m.contribution < 2 ? 'is-warn' : 'is-good');
+
+    var mg = $('v-margin');
+    mg.textContent = pct(m.margin);
+    tone(mg, m.margin <= 0 ? 'is-bad' : m.margin < 0.5 ? 'is-warn' : 'is-good');
+    $('v-margin-note').textContent = 'of ' + money(state.monthly) + ' gross';
+
+    $('v-breakeven').textContent = m.breakeven > 0 ? m.breakeven : '—';
+    $('v-breakeven-note').textContent = m.breakeven > 0
+      ? 'analyses/mo · yearly ' + m.breakevenYear
+      : 'never profitable';
+
+    var pb = $('v-payback');
+    pb.textContent = isFinite(m.payback) ? m.payback.toFixed(1) : '∞';
+    tone(pb, !isFinite(m.payback) ? 'is-bad' : m.payback > 12 ? 'is-warn' : 'is-good');
+    $('v-payback-note').textContent = isFinite(m.payback)
+      ? 'months at ' + money(state.cac, 0) + ' CAC'
+      : 'no contribution to pay it back';
+  }
+
+  // ---- waterfall ----------------------------------------------------------
+
+  function renderFlow(m) {
+    var gross = state.monthly;
+    var rows = [
+      { label: 'Gross', amount: gross, color: 'var(--raised)', text: 'var(--ink)' },
+      { label: "Apple " + Math.round(state.apple * 100) + '%', amount: -(gross * state.apple),
+        color: 'var(--warn-dim)', text: 'var(--warn)' },
+      { label: 'AI · ' + state.usage + ' analyses', amount: -m.ai,
+        color: 'var(--accent-dim)', text: 'var(--accent)' },
+      { label: 'Storage + egress', amount: -m.infra, color: 'var(--rule)', text: 'var(--muted)' },
+      { label: 'Contribution', amount: m.contribution,
+        color: m.contribution > 0 ? 'var(--good-dim)' : 'var(--bad-dim)',
+        text: m.contribution > 0 ? 'var(--good)' : 'var(--bad)' }
+    ];
+
+    var scale = Math.max(gross, 0.01);
+    $('flow').innerHTML = rows.map(function (r) {
+      var w = Math.max(1.5, (Math.abs(r.amount) / scale) * 100);
+      return '<div class="flow-row">' +
+        '<div class="flow-bar" style="width:' + w + '%;background:' + r.color + '">' +
+          '<span style="color:' + r.text + '">' + r.label + '</span></div>' +
+        '<div class="flow-amt" style="color:' + r.text + '">' +
+          (r.amount < 0 ? '−' : '') + money(Math.abs(r.amount)) + '</div></div>';
+    }).join('');
+
+    var aiShare = m.ai / gross;
+    $('flow-note').innerHTML = m.contribution <= 0
+      ? '<strong>This loses money.</strong> At ' + state.usage + ' analyses a month the AI alone costs ' +
+        money(m.ai) + ' against ' + money(m.net) + ' of net revenue.'
+      : 'AI is <strong>' + pct(aiShare) + '</strong> of the subscription. Apple takes ' +
+        pct(state.apple) + ' — more than four times as much.';
+  }
+
+  // ---- chart --------------------------------------------------------------
+
+  function renderChart(m) {
+    var W = 640, H = 260, L = 46, R = 16, T = 16, B = 34;
+    var maxX = 160;
+    var pw = W - L - R, ph = H - T - B;
+
+    var unit = m.unit;
+    var marginAt = function (n) {
+      var infra = ((n * 0.5 * 0.4) / 1024) * 0.021 + ((n * 1.2) / 1024) * 0.09;
+      return (m.net - unit * n - infra) / state.monthly;
+    };
+
+    var lo = Math.min(-0.2, marginAt(maxX));
+    var hi = Math.max(1, marginAt(0));
+    var x = function (n) { return L + (n / maxX) * pw; };
+    var y = function (v) { return T + (1 - (v - lo) / (hi - lo)) * ph; };
+
+    var parts = [];
+    parts.push('<rect x="' + L + '" y="' + T + '" width="' + pw + '" height="' + (y(0) - T) +
+      '" fill="var(--good-dim)" opacity=".4"/>');
+    parts.push('<rect x="' + L + '" y="' + y(0) + '" width="' + pw + '" height="' + (T + ph - y(0)) +
+      '" fill="var(--bad-dim)" opacity=".4"/>');
+
+    [0, 0.25, 0.5, 0.75, 1].forEach(function (v) {
+      if (v < lo || v > hi) return;
+      parts.push('<line class="grid" x1="' + L + '" y1="' + y(v) + '" x2="' + (W - R) + '" y2="' + y(v) + '"/>');
+      parts.push('<text class="tick" x="' + (L - 8) + '" y="' + (y(v) + 3.5) +
+        '" text-anchor="end">' + Math.round(v * 100) + '%</text>');
+    });
+
+    parts.push('<line class="ax" x1="' + L + '" y1="' + y(0) + '" x2="' + (W - R) + '" y2="' + y(0) + '"/>');
+
+    var d = '';
+    for (var n = 0; n <= maxX; n += 2) d += (n === 0 ? 'M' : 'L') + x(n).toFixed(1) + ' ' + y(marginAt(n)).toFixed(1);
+    parts.push('<path d="' + d + '" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>');
+
+    [0, 40, 80, 120, 160].forEach(function (n) {
+      parts.push('<text class="tick" x="' + x(n) + '" y="' + (H - 12) + '" text-anchor="middle">' + n + '</text>');
+    });
+    parts.push('<text class="tick" x="' + (L + pw / 2) + '" y="' + (H - 1) +
+      '" text-anchor="middle">analyses per month</text>');
+
+    // Break-even, where the curve crosses zero.
+    if (m.breakeven > 0 && m.breakeven <= maxX) {
+      parts.push('<line class="grid" x1="' + x(m.breakeven) + '" y1="' + T + '" x2="' + x(m.breakeven) +
+        '" y2="' + (T + ph) + '" stroke="var(--bad)"/>');
+      parts.push('<circle cx="' + x(m.breakeven) + '" cy="' + y(0) + '" r="4" fill="var(--bad)"/>');
+      var anchor = m.breakeven > maxX * 0.72 ? 'end' : 'start';
+      var dx = anchor === 'end' ? -8 : 8;
+      parts.push('<text class="anno" x="' + (x(m.breakeven) + dx) + '" y="' + (T + 13) +
+        '" text-anchor="' + anchor + '" fill="var(--bad)">break-even ' + m.breakeven + '</text>');
+    }
+
+    // Where this user actually sits.
+    var mNow = marginAt(state.usage);
+    if (state.usage <= maxX) {
+      parts.push('<circle cx="' + x(state.usage) + '" cy="' + y(mNow) + '" r="5" fill="var(--accent)" ' +
+        'stroke="var(--surface)" stroke-width="2"/>');
+      var ax = state.usage > maxX * 0.72 ? 'end' : 'start';
+      parts.push('<text class="anno" x="' + (x(state.usage) + (ax === 'end' ? -10 : 10)) + '" y="' +
+        (y(mNow) - 10) + '" text-anchor="' + ax + '" fill="var(--accent)">' +
+        state.usage + '/mo · ' + pct(mNow) + '</text>');
+    }
+
+    // The fair-use ceiling that stops the curve going negative in practice.
+    if (FAIR_USE_CEILING <= maxX) {
+      parts.push('<line x1="' + x(FAIR_USE_CEILING) + '" y1="' + T + '" x2="' + x(FAIR_USE_CEILING) +
+        '" y2="' + (T + ph) + '" stroke="var(--muted)" stroke-width="1" stroke-dasharray="4 3"/>');
+      parts.push('<text class="anno" x="' + (x(FAIR_USE_CEILING) - 8) + '" y="' + (T + ph - 8) +
+        '" text-anchor="end" fill="var(--muted)">fair use ' + FAIR_USE_CEILING + '</text>');
+    }
+
+    $('chart').innerHTML = parts.join('');
+  }
+
+  // ---- tables -------------------------------------------------------------
+
+  function renderTokens(m) {
+    var p = m.p, hit = state.cache / 100;
+    var rows = [
+      ['System prompt', TOK.system, hit * (TOK.system / 1e6) * p.cacheRead +
+        (1 - hit) * (TOK.system / 1e6) * p.cacheWrite, 'cached'],
+      ['Tool schema', TOK.schema, hit * (TOK.schema / 1e6) * p.cacheRead +
+        (1 - hit) * (TOK.schema / 1e6) * p.cacheWrite, 'cached'],
+      ['Context', TOK.userPrompt, (TOK.userPrompt / 1e6) * p.input, '12 wardrobe + 8 history'],
+      ['Image', m.img, (m.img / 1e6) * p.input, state.image + 'px'],
+      ['Output', m.outputTok, (m.outputTok / 1e6) * p.output, 'result + thinking']
+    ];
+    var total = rows.reduce(function (s, r) { return s + r[1]; }, 0);
+
+    $('tokens').innerHTML = rows.map(function (r) {
+      return '<tr><td>' + r[0] + '<br><span style="color:var(--faint);font-size:11px">' + r[3] +
+        '</span></td><td class="num">' + r[1].toLocaleString() + '</td><td class="num">' +
+        Math.round((r[1] / total) * 100) + '%</td><td class="num">' + money(r[2], 4) + '</td></tr>';
+    }).join('') +
+      '<tr><td><strong>Total</strong></td><td class="num"><strong>' + total.toLocaleString() +
+      '</strong></td><td class="num">100%</td><td class="num"><strong>' + money(m.unit, 4) +
+      '</strong></td></tr>';
+  }
+
+  function renderFunnel(m) {
+    var freeCost = m.unit * AVG_FREE_USE;
+    var rates = [0.01, 0.02, 0.05, 0.10, state.conv / 100];
+    rates = rates.filter(function (v, i, a) { return a.indexOf(v) === i; }).sort(function (a, b) { return a - b; });
+
+    $('funnel').innerHTML = rates.map(function (c) {
+      var net = c * m.contribution - (1 - c) * freeCost;
+      var mine = Math.abs(c - state.conv / 100) < 1e-9;
+      return '<tr' + (mine ? ' style="background:var(--accent-dim)"' : '') + '>' +
+        '<td>' + (c * 100).toFixed(1) + '%' + (mine ? ' ←' : '') + '</td>' +
+        '<td class="num">' + pct(c) + '</td>' +
+        '<td class="num">' + money(freeCost, 3) + '</td>' +
+        '<td class="num" style="color:' + (net > 0 ? 'var(--good)' : 'var(--bad)') + '">' +
+        (net < 0 ? '−' : '') + money(Math.abs(net), 3) + '</td></tr>';
+    }).join('');
+
+    var denom = m.contribution + freeCost;
+    var be = denom > 0 ? freeCost / denom : Infinity;
+    $('funnel-note').innerHTML = isFinite(be)
+      ? 'Break-even conversion is <strong>' + pct(be) + '</strong>. A typical free user runs ' +
+        AVG_FREE_USE + ' of their ' + FREE_CHECKS + ' checks, costing ' + money(freeCost, 3) + ' a month.'
+      : 'With no contribution from paying users, no conversion rate pays for the free tier.';
+  }
+
+  // ---- wiring -------------------------------------------------------------
+
+  function renderLabels(m) {
+    $('o-monthly').textContent = money(state.monthly);
+    $('o-yearly').textContent = money(state.yearly);
+    $('o-apple').textContent = Math.round(state.apple * 100) + '%';
+    $('o-usage').textContent = state.usage;
+    $('o-conv').textContent = state.conv.toFixed(1) + '%';
+    $('o-cac').textContent = money(state.cac, 0);
+    $('o-model').textContent = m.p.label;
+    $('o-image').textContent = state.image + 'px';
+    $('o-cache').textContent = state.cache + '%';
+    $('o-think').textContent = state.think.toLocaleString();
+
+    var effMonthly = state.yearly / 12;
+    $('h-yearly').textContent = money(effMonthly) + '/month effective — ' +
+      (effMonthly < state.monthly
+        ? Math.round((1 - effMonthly / state.monthly) * 100) + '% below the monthly plan'
+        : 'no saving against the monthly plan');
+
+    $('h-usage').textContent = state.usage <= 15
+      ? 'Typical shopper.'
+      : state.usage <= 40 ? 'Heavy user.'
+      : state.usage <= FAIR_USE_CEILING ? 'Beyond any realistic shopper.'
+      : 'Above the ' + FAIR_USE_CEILING + '/month fair-use ceiling — the backend refuses this.';
+
+    $('h-conv').textContent = 'Of everyone who signs up free.';
+    $('h-image').textContent = imageTokens(state.image).toLocaleString() +
+      ' image tokens. Sonnet 5 accepts up to 2576px, so nothing downsamples it for you.';
+    $('h-think').textContent = state.think === 0
+      ? 'Thinking off.'
+      : 'The one figure here that is an estimate, not a measurement.';
+  }
+
+  function render() {
+    var m = model();
+    renderLabels(m);
+    renderVerdict(m);
+    renderFlow(m);
+    renderChart(m);
+    renderTokens(m);
+    renderFunnel(m);
+  }
+
+  [['c-monthly', 'monthly', parseFloat], ['c-yearly', 'yearly', parseFloat],
+   ['c-usage', 'usage', parseInt], ['c-conv', 'conv', parseFloat],
+   ['c-cac', 'cac', parseFloat], ['c-image', 'image', parseInt],
+   ['c-cache', 'cache', parseInt], ['c-think', 'think', parseInt]
+  ].forEach(function (pair) {
+    var el = $(pair[0]);
+    el.addEventListener('input', function () {
+      state[pair[1]] = pair[2](el.value, 10);
+      render();
+    });
+  });
+
+  document.querySelectorAll('[data-apple]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      state.apple = parseFloat(b.dataset.apple);
+      document.querySelectorAll('[data-apple]').forEach(function (o) {
+        o.setAttribute('aria-pressed', String(o === b));
+      });
+      render();
+    });
+  });
+
+  document.querySelectorAll('[data-model]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      state.model = b.dataset.model;
+      document.querySelectorAll('[data-model]').forEach(function (o) {
+        o.setAttribute('aria-pressed', String(o === b));
+      });
+      render();
+    });
+  });
+
+  render();
+})();
+</script>
