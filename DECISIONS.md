@@ -413,7 +413,7 @@ switched off.
 
 ---
 
-## 32. $6.99 monthly, $69.99 yearly — priced against a 30% Apple cut
+## 32. $9.99 monthly, $69.99 yearly — priced against a 30% Apple cut
 
 Measured rather than guessed: `backend/scripts/cost-model.mjs` builds the real
 prompt through `buildAnalysisPrompt()` and prices it at Anthropic list rates.
@@ -433,10 +433,10 @@ success is the conservative choice, and it costs nothing here.
 
 ### "90% margin" means two different things, and only one is reachable
 
-| Basis | At $6.99, Apple 30% | Ceiling |
+| Basis | At $9.99, Apple 30% | Ceiling |
 | --- | --- | --- |
-| **Gross** — contribution ÷ sticker price, Apple counted as a cost | 65.3% | **70%** |
-| **Net** — contribution ÷ what reaches the bank | **93.4%** | 100% |
+| **Gross** — contribution ÷ sticker price, Apple counted as a cost | 66.7% | **70%** |
+| **Net** — contribution ÷ what reaches the bank | **95.4%** | 100% |
 
 A 90% *gross* margin is arithmetically impossible while a store takes 30% off
 the top: `margin = (1 − cut) − cost/price` approaches 70% as price rises and
@@ -444,28 +444,32 @@ never reaches it. No App Store price achieves it. Direct billing does — Stripe
 at 2.9% + 30¢ puts the yearly plan at 90.1% gross — but that is a distribution
 decision, not a pricing one.
 
-On the **net** basis, which is what "our margin" normally means, $6.99 already
-delivered 93.4% and needed no change.
+On the **net** basis, which is what "our margin" normally means, both plans
+clear 90% comfortably.
 
-### So why move the yearly price
+### Where the two prices land
 
-Headroom. At $59.99 the yearly plan held 90% net only up to **12 analyses a
-month** — exactly the typical figure. A single good month of engagement pushed
-it under.
+| Plan | Sticker | Net/month | Net margin at 12/mo | Holds 90% to |
+| --- | --- | --- | --- | --- |
+| Monthly | $9.99 | $6.99 | **95.4%** | 25 analyses/mo |
+| Yearly | $69.99 | $4.08 | **92.0%** | 15 analyses/mo |
 
-| Yearly price | Net margin at 12/mo | Holds 90% up to |
-| --- | --- | --- |
-| $59.99 | 90.7% | 12 analyses/mo |
-| **$69.99** | **92.0%** | **15 analyses/mo** |
-| $79.99 | 93.0% | 17 analyses/mo |
+The yearly plan is always the binding constraint: its effective monthly rate is
+lower, so it meets any margin target first. 15 analyses a month against a
+typical 12 is thin but workable, and the fair-use ceiling at 100 caps the tail.
 
-$69.99 also fixes something unrelated: $59.99 against a $6.99 monthly is a
-**28.5% annual discount**, unusually steep. $69.99 is ~17% — the conventional
-"two months free".
+### The annual discount is 42%, and that is a choice
 
-**The monthly price does not move.** It already clears the target with room to
-18 analyses a month, and it is the conversion-sensitive number. At 90%+ net
-margin either way, a point of conversion is worth more than a point of margin.
+$69.99 against twelve payments of $9.99 is a **41.6% discount** — far steeper
+than the conventional "two months free" (~17%). That is a deliberate push
+toward annual billing: cash up front and materially lower churn, paid for with
+monthly revenue from the subscribers who would have taken the annual plan at a
+smaller discount.
+
+The paywall computes and shows that figure from the two live StoreKit prices,
+so it reads "Save 42%" without anyone maintaining a string. If the discount
+ever wants narrowing, the lever is the yearly price; the monthly one is the
+conversion-sensitive number and should move last.
 
 Nothing in the app changed, because **no Swift or TypeScript file contains a
 price** — only `Products.storekit` and the docs. The paywall's "Save 17%" badge

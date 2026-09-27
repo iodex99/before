@@ -33,7 +33,7 @@ const CONFIG = {
   /** Typical product photo aspect. 4:3 portrait is the common case. */
   imageAspect: 3 / 4,
 
-  monthlyPrice: Number(args.monthly ?? 6.99),
+  monthlyPrice: Number(args.monthly ?? 9.99),
   yearlyPrice: Number(args.yearly ?? 69.99),
 
   /** Analyses per month for a paying subscriber. The number that decides everything. */

@@ -25,13 +25,14 @@ the same number.
 
 ## BEFORE Plus
 
-**$6.99 per month or $69.99 per year** — reference prices only. The UI always
+**$9.99 per month or $69.99 per year** — reference prices only. The UI always
 shows StoreKit's localised strings, and the annual saving percentage is computed
 from the two real prices or not shown at all.
 
-The yearly plan is a ~17% discount, the conventional "two months free". It was
-$59.99 (a 28.5% discount), which left no margin headroom once Apple's cut is
-assumed at 30% — see DECISIONS.md §32.
+The yearly plan is a **42% discount** on twelve monthly payments — a deliberate
+push toward annual billing, which trades monthly revenue for lower churn and
+cash up front. The paywall computes and displays that figure itself. See
+DECISIONS.md §32.
 
 No monthly cap. Unlocks unlimited checks, full history, full wardrobe memory,
 outcome tracking, personalised insights, and advanced share cards.

@@ -177,7 +177,7 @@ Create a subscription group `before_plus` with two auto-renewable products:
 
 | Identifier | Duration | Reference price |
 | --- | --- | --- |
-| `before.plus.monthly` | 1 month | $6.99 |
+| `before.plus.monthly` | 1 month | $9.99 |
 | `before.plus.yearly` | 1 year | $69.99 |
 
 The identifiers must match `AppConfig.Subscription`. Prices are **never**
