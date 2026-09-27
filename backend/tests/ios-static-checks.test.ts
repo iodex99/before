@@ -335,3 +335,75 @@ test('account deletion tells the user we cannot cancel their subscription', () =
   const profile = readFileSync(join(iosRoot, 'BEFORE/Features/Profile/ProfileView.swift'), 'utf8');
   assert.match(profile, /only Apple can do that/i);
 });
+
+// ---------------------------------------------------------------------------
+// Swift 6 concurrency traps.
+//
+// Both of these were real CI failures. They are here because they are
+// invisible on a machine without a Swift compiler, and because the obvious
+// "fix" for the first one — `nonisolated(unsafe)` — compiles and is a race.
+// ---------------------------------------------------------------------------
+
+test('a cancellable task is held in a TaskHandle, not a stored Task?', () => {
+  // `deinit` on a `@MainActor` type is nonisolated under Swift 6, so it cannot
+  // read a main-actor-isolated `Task?`. `TaskHandle` puts the handle behind a
+  // lock so `deinit { work.cancel() }` is both legal and race-free.
+  const offenders: string[] = [];
+
+  for (const { path, body } of sources) {
+    if (path.endsWith('Support/TaskHandle.swift')) continue; // the one place it belongs
+    for (const [index, line] of stripComments(body).split('\n').entries()) {
+      if (/\b(?:var|let)\s+\w+\s*:\s*Task</.test(line)) {
+        offenders.push(`${path}:${index + 1}`);
+      }
+    }
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    'stored Task properties cannot be cancelled from deinit — use BeforeKit.TaskHandle',
+  );
+});
+
+test('every deinit only calls methods, never touches stored state', () => {
+  const offenders: string[] = [];
+
+  for (const { path, body } of sources) {
+    const stripped = stripComments(body);
+    for (const match of stripped.matchAll(/\bdeinit\s*\{([^{}]*)\}/g)) {
+      const inside = match[1];
+      // `x.cancel()`, `x.invalidate()` — a call on a Sendable helper — is fine.
+      // An assignment, or a member read without a call, is main-actor state.
+      const remaining = inside.replace(/\b[\w.]+\([^()]*\)\s*;?/g, '').trim();
+      if (remaining.length > 0) {
+        const line = stripped.slice(0, match.index).split('\n').length;
+        offenders.push(`${path}:${line} — leftover: ${remaining}`);
+      }
+    }
+  }
+
+  assert.deepEqual(offenders, [], 'a nonisolated deinit cannot read main-actor state');
+});
+
+test('Decimal money is converted before it is rounded', () => {
+  // `Decimal` has no `rounded()`. Writing one makes Swift look for a
+  // floating-point `*` and report the error on the multiplication instead,
+  // which sends you looking in the wrong place.
+  const offenders: string[] = [];
+
+  for (const { path, body } of sources) {
+    for (const [index, line] of stripComments(body).split('\n').entries()) {
+      if (!line.includes('.rounded()')) continue;
+      if (!/\bprice\b|\bDecimal\b/.test(line)) continue;
+      if (line.includes('NSDecimalNumber') || line.includes('doubleValue')) continue;
+      offenders.push(`${path}:${index + 1}`);
+    }
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    'Decimal has no rounded() — go through NSDecimalNumber(decimal:).doubleValue',
+  );
+});

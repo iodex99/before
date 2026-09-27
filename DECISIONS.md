@@ -532,7 +532,7 @@ a picked photo cost the same.
 
 Built on Windows with Node 22. No Xcode, no Swift toolchain, no Supabase project.
 
-### Verified by execution — 264 backend tests, plus a real database and type-checker
+### Verified by execution — 274 backend tests, plus a real database and type-checker
 
 | Suite | What it actually proves |
 | --- | --- |
@@ -590,11 +590,83 @@ that will run them, and it found three real errors on its first run:
 
 All three are fixed. This is precisely why the check is in CI.
 
-### Still not executed
+### What CI has now actually run
 
-All Swift — `BeforeKit` tests, app unit tests, UI tests, and the Xcode build —
-and any live AI provider call. The contract and static tests narrow what can be
-wrong in the Swift, but they cannot type-check it.
+`.github/workflows/ios.yml` runs the Swift on a macOS runner, and that closed the
+largest gap in this list.
 
-`.github/workflows/ios.yml` runs all of it on a macOS runner. `TODO.md` §1 lists
-what to run first and the five places a compile error is most likely.
+- **`BeforeKit` passes**, score parity included. The Swift engine reproduces all
+  14 shared fixtures, so the cross-language claim in §2 is now demonstrated on
+  both sides rather than on one side plus a text comparison.
+- **The Xcode build found eight compile errors across two runs** — six, then two
+  after those were fixed. Not one of them was in scoring, safety, or quota
+  logic; every one was a Swift 6 isolation or API-surface mistake. That is the
+  honest division of labour between a type-checker and a static check: the
+  checks in `ios-static-checks` caught a rule violation the compiler would have
+  happily accepted, and the compiler caught eight things no regex was going to
+  find.
+
+The first run also taught a CI lesson worth keeping. The build step was written
+as `xcodebuild … | xcbeautify || xcodebuild …`. `xcbeautify` was not installed,
+so the pipeline failed, the fallback ran a *second* build, and that build's
+unrelated destination error was the only thing in the log. Six real compile
+errors were invisible for a full cycle. A build step now runs once and fails
+with the compiler's own output.
+
+Still not executed: the app unit tests and the UI tests — they sit behind the
+build job, which has to be green first — the TestFlight workflow, which needs
+twelve repository secrets (`docs/RELEASE.md`), and any live AI provider call.
+
+---
+
+## 36. `TaskHandle`, because `deinit` is nonisolated under Swift 6
+
+Two view models cancelled their work on the way out, the obvious way:
+
+```swift
+@MainActor @Observable final class AnalysisFlowViewModel {
+    private var task: Task<Void, Never>?
+    deinit { task?.cancel() }   // does not compile
+}
+```
+
+Under Swift 6, `deinit` on a `@MainActor` type is *nonisolated* — the compiler
+cannot prove which thread releases the last reference — so it may not read
+main-actor-isolated state. Three ways out, and only one of them is honest:
+
+| Option | Why not |
+| --- | --- |
+| Delete the `deinit` | The task holds `[weak self]`, so it does not retain the view model — but `for await` on a stream that never emits again never returns. The listener leaks for the life of the process. |
+| `nonisolated(unsafe) var task` | Compiles, silences the diagnostic, and keeps the race it was reporting: `deinit` can run on one thread while the actor assigns on another. |
+| Hold the handle behind a lock | Removes the race instead of hiding it, and leaves every other property's isolation alone. |
+
+`BeforeKit.TaskHandle` is the third. `store` adopts a task and cancels whatever
+it replaces, `cancel` is idempotent and callable from anywhere, and `clear`
+forgets a task that has already finished without pretending to cancel it.
+
+It lives in `BeforeKit` rather than the app target for one reason: there it is
+covered by `swift test`, so the seven tests around it — including one whose only
+job is to prove a `@MainActor` type can still cancel from `deinit` — run in the
+fast CI job instead of behind a simulator. None of them use a sleep or a
+timeout; each awaits the task it makes a claim about, so a cancellation that
+never propagates hangs and fails, rather than passing on a lucky schedule.
+
+Three static checks were added with it, each verified by planting the bug it
+describes and watching it fail: no stored `Task<…>?` outside `TaskHandle.swift`,
+no `deinit` that does anything but call a method, and no `.rounded()` on
+`Decimal`.
+
+That last one is the eighth compile error, and it is worth a paragraph because
+the message sends you to the wrong line:
+
+```swift
+let percentage = Int((saving * 100).rounded())
+// error: binary operator '*' cannot be applied to
+//        operands of type 'Decimal' and 'Float16'
+```
+
+`Decimal` has no `rounded()`. Swift therefore infers outside-in, hunts for a
+floating-point type that does, picks `Float16` for the literal `100`, and reports
+the failure on the multiplication — which is fine. `StoreKit` gives prices as
+`Decimal`, so the arithmetic stays in `Decimal` and only the rounding leaves it:
+`Int(NSDecimalNumber(decimal: saving * 100).doubleValue.rounded())`.

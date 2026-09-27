@@ -1,3 +1,4 @@
+import Foundation
 import StoreKit
 import StoreKitTest
 import XCTest
@@ -58,9 +59,11 @@ final class SubscriptionTests: XCTestCase {
             return XCTFail("products did not load")
         }
 
-        let expected = Int(
-            (((monthly.price * 12) - yearly.price) / (monthly.price * 12) * 100).rounded()
-        )
+        // Mirrors the production expression, including the conversion out of
+        // `Decimal` for the rounding — `Decimal` has no `rounded()`.
+        let yearAtMonthlyRate = monthly.price * 12
+        let saving = (yearAtMonthlyRate - yearly.price) / yearAtMonthlyRate
+        let expected = Int(NSDecimalNumber(decimal: saving * 100).doubleValue.rounded())
         XCTAssertEqual(manager.annualSavingDescription, "Save \(expected)%")
     }
 

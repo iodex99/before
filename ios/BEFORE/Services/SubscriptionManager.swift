@@ -48,7 +48,10 @@ public final class SubscriptionManager {
 
     private let keychain: KeychainStore
     private let syncSubscription: @Sendable (SubscriptionSyncPayload) async -> Void
-    private var updatesTask: Task<Void, Never>?
+    /// Held in a `TaskHandle` rather than a plain `Task?` so `deinit` can cancel
+    /// it: `deinit` is nonisolated under Swift 6 and may not touch main-actor
+    /// state. See `BeforeKit.TaskHandle`.
+    private let updates = TaskHandle()
 
     private static let cachedIsPlusKey = "before.cache.isPlus"
 
@@ -63,7 +66,7 @@ public final class SubscriptionManager {
         isPlus = UserDefaults.standard.bool(forKey: Self.cachedIsPlusKey)
     }
 
-    deinit { updatesTask?.cancel() }
+    deinit { updates.cancel() }
 
     // MARK: - Lifecycle
 
@@ -71,14 +74,16 @@ public final class SubscriptionManager {
     /// needs the answer — a transaction approved outside the app (Ask to Buy,
     /// a renewal) arrives through this stream and nowhere else.
     public func start() {
-        guard updatesTask == nil else { return }
+        guard !updates.isActive else { return }
 
-        updatesTask = Task(priority: .background) { [weak self] in
-            for await update in Transaction.updates {
-                guard let self else { return }
-                await self.handle(update)
+        updates.store(
+            Task(priority: .background) { [weak self] in
+                for await update in Transaction.updates {
+                    guard let self else { return }
+                    await self.handle(update)
+                }
             }
-        }
+        )
 
         Task {
             await loadProducts()
@@ -238,8 +243,12 @@ public final class SubscriptionManager {
         let yearAtMonthlyRate = monthly.price * 12
         guard yearAtMonthlyRate > yearly.price, yearAtMonthlyRate > 0 else { return nil }
 
+        // `Decimal` has no `rounded()`. Asking for one sends Swift hunting for a
+        // floating-point overload of `*`, which is why the compiler reports the
+        // mismatch on the multiplication. Keep the arithmetic in `Decimal` and
+        // convert only for the rounding.
         let saving = (yearAtMonthlyRate - yearly.price) / yearAtMonthlyRate
-        let percentage = Int((saving * 100).rounded())
+        let percentage = Int(NSDecimalNumber(decimal: saving * 100).doubleValue.rounded())
         guard percentage >= 5 else { return nil }
         return "Save \(percentage)%"
     }

@@ -83,7 +83,7 @@ before/
 │   │                           me, usage, product-metadata, subscription-sync,
 │   │                           account-delete, account-export,
 │   │                           app-store-notifications
-│   ├── tests/                  264 tests, run with plain Node 22
+│   ├── tests/                  274 tests, run with plain Node 22
 │   └── scripts/                secret scan, fixture printer
 ├── docs/                       API, SETUP, AI, PRIVACY, LIMITS, APP_STORE, ICON
 ├── .claude/                    agents, commands, hooks, rules, skills
@@ -102,7 +102,7 @@ No Supabase project, no API key, no build step.
 
 ```bash
 npm install
-npm run test:backend     # 264 tests
+npm run test:backend     # 274 tests
 npm run check:secrets
 npm run check:deno       # type-check the edge functions under Deno
 npm run test:migrations  # apply migrations to real Postgres + RLS checks (Docker)
@@ -168,7 +168,7 @@ finding, and most have a test.
 
 | Suite | Command | Runs on |
 | --- | --- | --- |
-| Backend (264 tests) | `npm run test:backend` | any OS |
+| Backend (274 tests) | `npm run test:backend` | any OS |
 | Migrations + RLS | `npm run test:migrations` | any OS with Docker |
 | Edge function types | `npm run check:deno` | any OS |
 | Score parity (Swift) | `swift test --package-path ios/BeforeKit` | macOS |
@@ -199,17 +199,22 @@ so drift fails a build rather than reaching a user. See DECISIONS.md §2.
 
 ## Status
 
-Built and verified on Windows with Node 22. **All 249 backend tests pass.**
+**274 backend tests pass** on Windows with Node 22, and the Swift now compiles
+and runs on CI.
 
-That includes Apple signature verification tested against a real OpenSSL ECDSA
-certificate chain — the suite generates a second, independent chain and proves
-the verifier rejects it, so the root pinning is demonstrated rather than assumed.
+The backend total includes Apple signature verification against a real OpenSSL
+ECDSA certificate chain — the suite generates a second, independent chain and
+proves the verifier rejects it, so the root pinning is demonstrated rather than
+assumed.
 
-Swift code, the Xcode build, the migrations against a real Postgres, and live AI
-calls have **not** been executed here — there is no Xcode, Swift toolchain, or
-Supabase project in this environment. Cross-language contract tests and static
-checks over the Swift narrow what can be wrong there, but they cannot type-check
-it.
+| | |
+| --- | --- |
+| Backend tests, migrations, edge-function types | pass locally and on CI |
+| `BeforeKit` + score parity | passes on a macOS runner |
+| Xcode build | found eight compile errors over two runs; all fixed |
+| App unit tests and UI tests | queued behind the build job |
+| TestFlight | written, never run — needs twelve secrets (`docs/RELEASE.md`) |
+| Live AI provider call | not executed |
 
-`DECISIONS.md` §31 lists exactly what was and was not run; `TODO.md` §1 lists
-what to run first on a Mac and where a compile error is most likely.
+`DECISIONS.md` §35 lists exactly what has and has not been run, and §36 covers
+the Swift 6 isolation problem the build found. `TODO.md` §1 is what is left.

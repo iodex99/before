@@ -4,44 +4,59 @@ What is not built, what is not verified, and what to do first.
 
 ---
 
-## 1. Verify on a Mac — do this before anything else
+## 1. Finish going green on CI
 
-Nothing Swift has been compiled, because this environment has no Swift toolchain
-and no Xcode. Everything is written carefully, cross-checked by static tests, and
-**unverified by a compiler**.
+The Swift is no longer unverified. `.github/workflows/iOS` compiles it on a macOS
+runner, and the fast `BeforeKit` job — pure logic, no Xcode project, no simulator
+— already passes, score parity included.
+
+What is left, in order:
+
+1. **The `Build` job.** Eight compile errors so far, over two runs, all fixed.
+   Expect a few more: the build had to stop at the first file it could not
+   type-check, so later files have not had their turn yet.
+2. **The `Unit and UI tests` job.** It is `needs: build`, so it has been skipped
+   every run so far and has never compiled the test targets. `SKTestSession` is
+   the most likely trouble — its API surface moves between Xcode versions.
+3. **TestFlight.** The workflow exists and is registered, but it has never run:
+   it needs twelve repository secrets first. `docs/RELEASE.md` is the checklist.
+4. **One live AI call.** Nothing in this repository has spoken to a model. The
+   provider abstraction, the prompt, the schema validation, and the cost model
+   are all exercised against fixtures only.
+
+To reproduce the CI build locally on a Mac:
 
 ```bash
-# 1. Pure logic first — fastest feedback, no Xcode needed.
-swift test --package-path ios/BeforeKit
-```
-
-`ScoreParityTests` is the one that matters: it runs the same fixtures as the
-TypeScript suite. If the Swift engine disagrees, it fails here.
-
-```bash
-# 2. Then the app.
+swift test --package-path ios/BeforeKit      # fast, no Xcode
 brew install xcodegen
 cp ios/Config.xcconfig.example ios/Config.xcconfig     # fill it in
 make ios-project
 make ios-test
 ```
 
-Expect to fix compile errors on the first pass. Likely spots, in order:
+### Where the compile errors actually were
 
-- `@Observable` + `@MainActor` under strict concurrency in `AppEnvironment`,
-  `AuthService`, `SubscriptionManager`, `NotificationService`, and
-  `WardrobeViewModel`.
-- SwiftData `#Predicate` in `ResultView.record(_:)` — predicates capturing a
-  local `analysis` sometimes need the value hoisted into a `let` first.
-- `SKTestSession` API surface in `SubscriptionTests` (`expireSubscription`,
-  `refundTransaction`, `failureError`) varies between Xcode versions.
-- `Product.SubscriptionInfo.status(for:)` returns an array; the grace-period
-  loop in `refreshEntitlements()` assumes that shape.
-- `MockWardrobeRepository` is an `actor`; calls from `WardrobeViewModel` are
-  already `await`ed, but check the isolation warnings.
+This list was written before anything had been compiled, as a prediction. Keeping
+the score is more useful than quietly deleting it:
 
-None of these are design problems; they are the ordinary cost of writing Swift
-without a compiler.
+| Predicted | Outcome |
+| --- | --- |
+| `@Observable` + `@MainActor` under strict concurrency in `AuthService`, `SubscriptionManager` | **Right.** Both, plus `AnalysisFlowViewModel` — see DECISIONS §36 |
+| SwiftData `#Predicate` in `ResultView.record(_:)` | Not hit |
+| `SKTestSession` API surface in `SubscriptionTests` | Still untested — the test target has not compiled yet |
+| `Product.SubscriptionInfo.status(for:)` shape | Not hit |
+| `MockWardrobeRepository` actor isolation | Not hit |
+
+Three that were *not* predicted, and are the more instructive half:
+
+- A `public init` whose default arguments read the app-internal `AppConfig`.
+  Swift will not let a public signature depend on an internal type, and the fix
+  was to stop claiming the initialiser was public — nothing outside the target
+  calls it.
+- `SharedPayload` needed `Hashable`, not just `Equatable`, because
+  `CheckEntryPoint` carries one and SwiftUI needs the enum hashable.
+- `@Environment(.dismiss)` for `@Environment(\.dismiss)` — a typo that a static
+  check could have caught and did not.
 
 ---
 

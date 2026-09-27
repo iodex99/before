@@ -30,7 +30,9 @@ final class AnalysisFlowViewModel {
     private let repository: AnalysisRepositoryProtocol
     private let uploader: ImageUploading
     private let userId: String
-    private var task: Task<Void, Never>?
+    /// A `TaskHandle`, not a `Task?`: `deinit` is nonisolated under Swift 6 and
+    /// may not read main-actor state. See `BeforeKit.TaskHandle`.
+    private let work = TaskHandle()
 
     init(
         draft: AnalysisRequestDraft,
@@ -44,10 +46,10 @@ final class AnalysisFlowViewModel {
         self.userId = userId
     }
 
-    deinit { task?.cancel() }
+    deinit { work.cancel() }
 
     func start() {
-        guard task == nil else { return }
+        guard !work.isActive else { return }
         Analytics.track(.analysisStarted, AnalyticsProperties(inputType: draft.inputType))
         run()
     }
@@ -57,17 +59,16 @@ final class AnalysisFlowViewModel {
         // attempt actually reached the server, this returns that same analysis
         // instead of paying for a second one (spec §50).
         phase = .working
-        task = nil
+        // No clear() first: `store` cancels whatever it replaces.
         run()
     }
 
     func cancel() {
-        task?.cancel()
-        task = nil
+        work.cancel()
     }
 
     private func run() {
-        task = Task { [weak self] in
+        work.store(Task { [weak self] in
             guard let self else { return }
             do {
                 // Upload first, and only once: a retry after a failed analysis
@@ -102,7 +103,7 @@ final class AnalysisFlowViewModel {
                 phase = .failed(.analysisFailed)
                 Analytics.track(.analysisFailed, AnalyticsProperties(inputType: draft.inputType))
             }
-        }
+        })
     }
 }
 
