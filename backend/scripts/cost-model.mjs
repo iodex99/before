@@ -34,7 +34,7 @@ const CONFIG = {
   imageAspect: 3 / 4,
 
   monthlyPrice: Number(args.monthly ?? 6.99),
-  yearlyPrice: Number(args.yearly ?? 59.99),
+  yearlyPrice: Number(args.yearly ?? 69.99),
 
   /** Analyses per month for a paying subscriber. The number that decides everything. */
   analysesPerPlusUser: Number(args.usage ?? 12),
@@ -302,7 +302,120 @@ console.log(`   a monthly ceiling near ${Math.round(yearlyBreakEven * 0.75)} wou
 console.log(`   subscriber profitable while staying ~${Math.round((yearlyBreakEven * 0.75) / CONFIG.analysesPerPlusUser)}x`
   + ` typical usage.`);
 
-console.log('\n8. WHAT ACTUALLY DECIDES PROFIT\n');
+// ---------------------------------------------------------------------------
+// Repricing for a target margin
+// ---------------------------------------------------------------------------
+
+/**
+ * Two different things get called "margin", and the difference decides whether
+ * a target is even reachable.
+ *
+ *   GROSS   contribution / sticker price, with the store's cut counted as a
+ *           cost. contribution = P(1-a) - C, so margin = (1-a) - C/P. As the
+ *           price rises this approaches (1-a) and never reaches it. With a 30%
+ *           cut the ceiling is 70%, whatever you charge.
+ *
+ *   NET     contribution / what actually lands in the bank. The store's cut is
+ *           treated as a fact of distribution rather than a cost of goods.
+ *           This is what most people mean by "our margin", and it has no
+ *           ceiling below 100%.
+ */
+function priceForTargetMargin(target, appleCut, monthlyCost, basis) {
+  if (basis === 'gross') {
+    const ceiling = 1 - appleCut;
+    if (target >= ceiling) return { impossible: true, ceiling };
+    return { price: monthlyCost / (ceiling - target), ceiling };
+  }
+  // net basis: P(1-a)(1-target) = C
+  return { price: monthlyCost / ((1 - appleCut) * (1 - target)), ceiling: 1 };
+}
+
+function marginAtPrice(price, appleCut, monthlyCost, basis) {
+  const net = price * (1 - appleCut);
+  const contribution = net - monthlyCost;
+  return basis === 'gross' ? contribution / price : contribution / net;
+}
+
+const TARGET = Number(args.target ?? 0.90);
+const APPLE = Number(args.apple ?? PRICES.appleCutStandard);
+const monthlyCost = unit * CONFIG.analysesPerPlusUser + infraPerUser;
+
+console.log(`\n8. REPRICING FOR A ${pct(TARGET)} MARGIN  (Apple ${pct(APPLE)})\n`);
+console.log(`   direct cost per subscriber per month: ${money(monthlyCost, 3)}`
+  + `   (${CONFIG.analysesPerPlusUser} analyses)\n`);
+
+for (const basis of ['gross', 'net']) {
+  const label = basis === 'gross' ? 'of sticker price (Apple = cost)' : 'of net receipts (after Apple)';
+  const result = priceForTargetMargin(TARGET, APPLE, monthlyCost, basis);
+
+  console.log(`   ${pct(TARGET)} ${label}`);
+  if (result.impossible) {
+    console.log(`     IMPOSSIBLE — the ceiling is ${pct(result.ceiling)} at any price,`);
+    console.log(`     because Apple takes ${pct(APPLE)} before you see a cent.\n`);
+    continue;
+  }
+  const current = marginAtPrice(CONFIG.monthlyPrice, APPLE, monthlyCost, basis);
+  console.log(`     required monthly price  ${money(result.price, 2)}`);
+  console.log(`     at today's ${money(CONFIG.monthlyPrice, 2)}      ${pct(current)}`
+    + (current >= TARGET ? '  already there' : '  short'));
+  console.log('');
+}
+
+// What today's price actually delivers, on both readings.
+console.log(`   Today at ${money(CONFIG.monthlyPrice, 2)}, Apple ${pct(APPLE)}:`);
+console.log(`     gross margin  ${pct(marginAtPrice(CONFIG.monthlyPrice, APPLE, monthlyCost, 'gross'))}`
+  + `   (ceiling ${pct(1 - APPLE)})`);
+console.log(`     net margin    ${pct(marginAtPrice(CONFIG.monthlyPrice, APPLE, monthlyCost, 'net'))}`);
+
+// The yearly plan is the binding constraint: its effective monthly rate is far
+// below the monthly plan's, so it hits any margin target first.
+console.log(`\n   Yearly ${money(CONFIG.yearlyPrice, 2)} = ${money(CONFIG.yearlyPrice / 12, 2)}/month sticker,`
+  + ` ${money((CONFIG.yearlyPrice * (1 - APPLE)) / 12, 2)}/month net`);
+const yearlyNetMargin = marginAtPrice(CONFIG.yearlyPrice / 12, APPLE, monthlyCost, 'net');
+console.log(`     net margin    ${pct(yearlyNetMargin)}`
+  + (yearlyNetMargin >= TARGET ? '  meets target' : '  BELOW TARGET'));
+
+// Headroom on each plan: how far usage can drift before the target slips.
+console.log(`\n   usage headroom at ${pct(TARGET)} net:`);
+for (const [label, effectiveMonthly] of [
+  ['monthly', CONFIG.monthlyPrice],
+  ['yearly ', CONFIG.yearlyPrice / 12],
+]) {
+  const budget = effectiveMonthly * (1 - APPLE) * (1 - TARGET);
+  const maxUsage = Math.floor((budget - infraPerUser) / unit);
+  console.log(`     ${label}  holds to ${String(maxUsage).padStart(3)} analyses/month`);
+}
+console.log(`     (typical is ${CONFIG.analysesPerPlusUser}; the fair-use ceiling is 100)`);
+
+// What each plan would have to cost to hit the target at a given usage level.
+console.log(`\n   prices that hold ${pct(TARGET)} net at higher usage:\n`);
+console.log('     ' + 'analyses/mo'.padEnd(14) + 'monthly'.padStart(10) + 'yearly'.padStart(11));
+for (const usage of [12, 18, 25, 40]) {
+  const cost = unit * usage + infraPerUser;
+  const monthlyNeeded = cost / ((1 - APPLE) * (1 - TARGET));
+  const yearlyNeeded = monthlyNeeded * 12;
+  console.log('     ' + String(usage).padEnd(14)
+    + money(monthlyNeeded, 2).padStart(10) + money(yearlyNeeded, 2).padStart(11));
+}
+
+// Selling outside the App Store is the only route to a high GROSS margin.
+const STRIPE_PCT = 0.029;
+const STRIPE_FIXED = 0.30;
+console.log('\n   If a 90% GROSS margin is the real goal, the store cut is the only');
+console.log('   thing in the way. Billing direct (Stripe 2.9% + 30c) instead:\n');
+for (const [price, months, label] of [
+  [CONFIG.monthlyPrice, 1, 'monthly'],
+  [CONFIG.yearlyPrice, 12, 'yearly '],
+]) {
+  const fee = price * STRIPE_PCT + STRIPE_FIXED;
+  const cost = monthlyCost * months;
+  const contribution = price - fee - cost;
+  console.log(`     ${label} ${money(price, 2).padStart(7)}  fee ${money(fee, 2)}`
+    + `  cost ${money(cost, 2).padStart(6)}  ->  ${pct(contribution / price)} gross`);
+}
+console.log('\n   The fixed 30c is why the yearly plan clears 90% and the monthly does not.');
+
+console.log('\n9. WHAT ACTUALLY DECIDES PROFIT\n');
 const contributionMonthly = CONFIG.monthlyPrice * (1 - PRICES.appleCutSmallBusiness)
   - unit * CONFIG.analysesPerPlusUser - infraPerUser;
 console.log(`   contribution per subscriber  ${money(contributionMonthly, 2)}/month`);

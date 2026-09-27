@@ -413,30 +413,70 @@ switched off.
 
 ---
 
-## 32. Prices stay at $6.99 / $59.99 — the cost model says they are right
+## 32. $6.99 monthly, $69.99 yearly — priced against a 30% Apple cut
 
 Measured rather than guessed: `backend/scripts/cost-model.mjs` builds the real
 prompt through `buildAnalysisPrompt()` and prices it at Anthropic list rates.
 
 | | |
 | --- | --- |
-| Cost per analysis (Sonnet 5, 70% cache hit) | **$0.0315** |
-| Contribution, $6.99/mo at Apple 15% | **$5.56 — 79.6% margin** |
-| Break-even usage, yearly plan | ~130 analyses/month |
+| Cost per analysis (Sonnet 5, 70% cache, 1568px) | **$0.0270** |
+| Direct cost per subscriber (12 analyses/mo) | $0.325 |
+| Break-even usage, yearly plan | ~150 analyses/month |
 | Typical usage | ~12 analyses/month |
-| Break-even free→paid conversion | 1.2% |
+| Break-even free→paid conversion | ~1.2% |
 
-At 80% margin the AI is not the constraint; CAC and churn are. Raising prices
-would buy margin the product does not need and cost conversion it does. The
-model is re-runnable with different assumptions rather than being a snapshot in
-a document:
+Priced against **Apple's 30%**, not the 15% Small Business rate. The 15% rate is
+the one that applies today, but it is conditional — on staying under $1M a year,
+and on Apple continuing to offer it. Pricing against the rate that survives
+success is the conservative choice, and it costs nothing here.
+
+### "90% margin" means two different things, and only one is reachable
+
+| Basis | At $6.99, Apple 30% | Ceiling |
+| --- | --- | --- |
+| **Gross** — contribution ÷ sticker price, Apple counted as a cost | 65.3% | **70%** |
+| **Net** — contribution ÷ what reaches the bank | **93.4%** | 100% |
+
+A 90% *gross* margin is arithmetically impossible while a store takes 30% off
+the top: `margin = (1 − cut) − cost/price` approaches 70% as price rises and
+never reaches it. No App Store price achieves it. Direct billing does — Stripe
+at 2.9% + 30¢ puts the yearly plan at 90.1% gross — but that is a distribution
+decision, not a pricing one.
+
+On the **net** basis, which is what "our margin" normally means, $6.99 already
+delivered 93.4% and needed no change.
+
+### So why move the yearly price
+
+Headroom. At $59.99 the yearly plan held 90% net only up to **12 analyses a
+month** — exactly the typical figure. A single good month of engagement pushed
+it under.
+
+| Yearly price | Net margin at 12/mo | Holds 90% up to |
+| --- | --- | --- |
+| $59.99 | 90.7% | 12 analyses/mo |
+| **$69.99** | **92.0%** | **15 analyses/mo** |
+| $79.99 | 93.0% | 17 analyses/mo |
+
+$69.99 also fixes something unrelated: $59.99 against a $6.99 monthly is a
+**28.5% annual discount**, unusually steep. $69.99 is ~17% — the conventional
+"two months free".
+
+**The monthly price does not move.** It already clears the target with room to
+18 analyses a month, and it is the conversion-sensitive number. At 90%+ net
+margin either way, a point of conversion is worth more than a point of margin.
+
+Nothing in the app changed, because **no Swift or TypeScript file contains a
+price** — only `Products.storekit` and the docs. The paywall's "Save 17%" badge
+is computed from the two live StoreKit prices, so it corrected itself.
 
 ```bash
-node backend/scripts/cost-model.mjs --usage 25 --monthly 8.99 --image-px 1280
+node backend/scripts/cost-model.mjs --apple 0.30 --target 0.90 --usage 25
 ```
 
 **The one number that is an assumption, not a measurement:** output tokens at
-`effort=medium`. Output is 62% of the cost, and the 1,400-token estimate for
+`effort=medium`. Output is ~60% of the cost, and the 1,400-token estimate for
 adaptive thinking could not be verified without a live key. `ai_call_log`
 already records real `input_tokens`, `output_tokens` and `estimated_cost_usd`
 per call, so the first day of real traffic replaces the estimate.
