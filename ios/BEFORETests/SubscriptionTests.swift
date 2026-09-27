@@ -42,6 +42,68 @@ final class SubscriptionTests: XCTestCase {
         try await super.tearDown()
     }
 
+    // MARK: Helpers
+
+    /// Waits for `isPlus` to reach `expected`, refreshing as it goes.
+    ///
+    /// `SKTestSession` mutations — expiring, refunding — do not reach
+    /// `Transaction.currentEntitlements` synchronously. In the app that
+    /// propagation arrives through `Transaction.updates`; a test has to wait for
+    /// it. This still fails if the entitlement never changes, so it cannot hide
+    /// a real regression — and on timeout it prints what StoreKit actually said,
+    /// because "XCTAssertFalse failed" on its own tells you nothing about why.
+    private func waitForIsPlus(
+        _ expected: Bool,
+        timeout: TimeInterval = 10,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        let deadline = Date().addingTimeInterval(timeout)
+
+        while Date() < deadline {
+            await manager.refreshEntitlements()
+            if manager.isPlus == expected { return }
+            try? await Task.sleep(for: .milliseconds(200))
+        }
+
+        let diagnosis = await entitlementDiagnostics()
+        XCTFail(
+            "isPlus stayed \(manager.isPlus) after \(Int(timeout))s, expected \(expected).\n  \(diagnosis)",
+            file: file,
+            line: line
+        )
+    }
+
+    /// Everything the entitlement decision is made from, as text.
+    private func entitlementDiagnostics() async -> String {
+        var lines: [String] = []
+
+        for await result in Transaction.currentEntitlements {
+            switch result {
+            case .verified(let transaction):
+                lines.append(
+                    "verified \(transaction.productID)"
+                    + " expires=\(transaction.expirationDate?.description ?? "nil")"
+                    + " revoked=\(transaction.revocationDate?.description ?? "nil")"
+                )
+            case .unverified(let transaction, let error):
+                lines.append("UNVERIFIED \(transaction.productID): \(error)")
+            }
+        }
+
+        if let statuses = try? await Product.SubscriptionInfo.status(
+            for: AppConfig.Subscription.groupIdentifier
+        ) {
+            for status in statuses {
+                lines.append("renewal state = \(String(describing: status.state))")
+            }
+        } else {
+            lines.append("no subscription status available")
+        }
+
+        return lines.isEmpty ? "no entitlements at all" : lines.joined(separator: "\n  ")
+    }
+
     // MARK: Products
 
     func testLoadsBothPlans() async {
@@ -102,9 +164,7 @@ final class SubscriptionTests: XCTestCase {
         try session.expireSubscription(
             productIdentifier: AppConfig.Subscription.monthly
         )
-        await manager.refreshEntitlements()
-
-        XCTAssertFalse(manager.isPlus, "an expired subscription must not keep Plus unlocked")
+        await waitForIsPlus(false)
     }
 
     func testARevokedTransactionRemovesEntitlement() async throws {
@@ -116,9 +176,7 @@ final class SubscriptionTests: XCTestCase {
         for transaction in session.allTransactions() {
             try await session.refundTransaction(identifier: UInt(transaction.identifier))
         }
-        await manager.refreshEntitlements()
-
-        XCTAssertFalse(manager.isPlus)
+        await waitForIsPlus(false)
     }
 
     func testRestoreFindsAnExistingSubscription() async throws {

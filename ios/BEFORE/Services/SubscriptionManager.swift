@@ -195,6 +195,8 @@ public final class SubscriptionManager {
                 return .failed("Something unexpected happened. Nothing was charged.")
             }
         } catch {
+            // However it arrives, cancelling is not a failure.
+            if Self.isCancellation(error) { return .userCancelled }
             return .failed(Self.message(for: error))
         }
     }
@@ -216,6 +218,9 @@ public final class SubscriptionManager {
                 ? .success
                 : .failed("We couldn't find a subscription on this Apple Account.")
         } catch {
+            // Dismissing the Apple Account sheet is a cancellation, not a
+            // missing subscription.
+            if Self.isCancellation(error) { return .userCancelled }
             return .failed(Self.message(for: error))
         }
     }
@@ -274,6 +279,29 @@ public final class SubscriptionManager {
                 appAccountToken: transaction.appAccountToken?.uuidString
             )
         )
+    }
+
+    /// Whether an error is really the user cancelling.
+    ///
+    /// A cancellation reaches us two ways. `purchase()` normally *returns*
+    /// `.userCancelled`, but it can also throw — as `StoreKitError.userCancelled`,
+    /// or, which is what a StoreKit Testing session produces, as
+    /// `StoreKitError.systemError` wrapping `SKError.paymentCancelled`. Bridging
+    /// to `NSError` does not see through that wrapping, so unwrap it.
+    ///
+    /// Cancelling is a normal thing to do. It is not a failure, and it must not
+    /// produce an error message (spec §45).
+    private static func isCancellation(_ error: Error) -> Bool {
+        if let storeKitError = error as? StoreKitError {
+            if case .userCancelled = storeKitError { return true }
+            if case .systemError(let underlying) = storeKitError {
+                return isCancellation(underlying)
+            }
+        }
+
+        let nsError = error as NSError
+        return nsError.domain == SKErrorDomain
+            && nsError.code == SKError.Code.paymentCancelled.rawValue
     }
 
     /// Readable messages. Never "Error 2" (spec §45).
