@@ -25,6 +25,18 @@ configs:
   Debug: debug
   Release: release
 
+# Every target reads its configuration from here.
+#
+# This has to be `configFiles`, not an `#include` inside `settings`. XcodeGen
+# writes `settings` straight into the pbxproj build-settings dictionary, and
+# `#include` is not a thing there — it becomes a build setting literally named
+# "#include" that nothing ever reads. Every `$(APP_BUNDLE_ID)`-style reference
+# then expands to empty, the build still succeeds, and the first thing to notice
+# is the simulator refusing to install an app whose CFBundleIdentifier is blank.
+configFiles:
+  Debug: Config.xcconfig
+  Release: Config.xcconfig
+
 settings:
   base:
     SWIFT_VERSION: "5.10"
@@ -33,8 +45,6 @@ settings:
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     DEAD_CODE_STRIPPING: YES
     CLANG_ENABLE_MODULE_VERIFIER: NO
-    # Every target reads its configuration from here.
-    "#include": Config.xcconfig
   configs:
     Debug:
       SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG

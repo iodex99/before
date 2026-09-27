@@ -13,8 +13,10 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative } from 'node:path';
+import yaml from 'js-yaml';
 
 const here = dirname(fileURLToPath(import.meta.url));
+const root = join(here, '../..');
 const iosRoot = join(here, '../../ios');
 
 function swiftFiles(dir: string, out: string[] = []): string[] {
@@ -471,4 +473,108 @@ test('XCTSkip is thrown, never returned', () => {
   }
 
   assert.deepEqual(offenders, [], 'XCTSkip must be thrown from a throwing test');
+});
+
+// ---------------------------------------------------------------------------
+// The XcodeGen spec.
+//
+// A misconfigured spec does not fail a build. It produces an app whose
+// Info.plist placeholders expanded to nothing, which compiles, links, and then
+// fails to install on a simulator with "Missing bundle ID" — five minutes into
+// a CI run, in a job that looks like a test failure. Worth catching here.
+// ---------------------------------------------------------------------------
+
+interface XcodeGenSpec {
+  configFiles?: Record<string, string>;
+  settings?: { base?: Record<string, unknown>; configs?: Record<string, Record<string, unknown>> };
+  targets?: Record<string, { settings?: { base?: Record<string, unknown> } }>;
+}
+
+const spec = yaml.load(readFileSync(join(iosRoot, 'project.yml'), 'utf8')) as XcodeGenSpec;
+
+test('the xcconfig is attached with configFiles, not an #include build setting', () => {
+  // `settings` is written verbatim into the pbxproj build-settings dictionary.
+  // `#include` means nothing there — it becomes a setting named "#include" that
+  // is never read, and every `$(APP_BUNDLE_ID)` silently expands to empty.
+  assert.ok(spec.configFiles, 'project.yml attaches no base configuration file');
+  for (const configuration of ['Debug', 'Release']) {
+    assert.equal(
+      spec.configFiles?.[configuration],
+      'Config.xcconfig',
+      `${configuration} has no base configuration file`,
+    );
+  }
+
+  const blocks = [
+    spec.settings?.base,
+    ...Object.values(spec.settings?.configs ?? {}),
+    ...Object.values(spec.targets ?? {}).map((target) => target.settings?.base),
+  ];
+
+  for (const block of blocks) {
+    for (const key of Object.keys(block ?? {})) {
+      assert.ok(
+        !key.startsWith('#'),
+        `"${key}" is not a build setting — an xcconfig is attached with configFiles`,
+      );
+    }
+  }
+});
+
+test('every build setting the plists reference is defined somewhere', () => {
+  // Xcode supplies these; they are not the xcconfig's job.
+  const providedByXcode = new Set([
+    'EXECUTABLE_NAME',
+    'PRODUCT_NAME',
+    'PRODUCT_MODULE_NAME',
+    'PRODUCT_BUNDLE_IDENTIFIER',
+    'MARKETING_VERSION',
+    'CURRENT_PROJECT_VERSION',
+    'DEVELOPMENT_LANGUAGE',
+  ]);
+
+  const example = readFileSync(join(iosRoot, 'Config.xcconfig.example'), 'utf8');
+  const fromXcconfig = new Set(
+    [...example.matchAll(/^\s*([A-Z0-9_]+)\s*=/gm)].map((match) => match[1]),
+  );
+  const fromSpec = new Set(
+    [
+      ...Object.keys(spec.settings?.base ?? {}),
+      ...Object.values(spec.settings?.configs ?? {}).flatMap((c) => Object.keys(c)),
+      ...Object.values(spec.targets ?? {}).flatMap((t) => Object.keys(t.settings?.base ?? {})),
+    ],
+  );
+
+  const referencing = [
+    'project.yml',
+    'BEFORE/Resources/Info.plist',
+    'BEFORE/Resources/BEFORE.entitlements',
+    'BEFOREShareExtension/Info.plist',
+    'BEFOREShareExtension/BEFOREShareExtension.entitlements',
+  ];
+
+  const undefinedRefs: string[] = [];
+  for (const file of referencing) {
+    const body = readFileSync(join(iosRoot, file), 'utf8');
+    for (const match of body.matchAll(/\$\(([A-Za-z0-9_]+)\)/g)) {
+      const name = match[1];
+      if (providedByXcode.has(name) || fromXcconfig.has(name) || fromSpec.has(name)) continue;
+      undefinedRefs.push(`${file}: $(${name})`);
+    }
+  }
+
+  assert.deepEqual(
+    [...new Set(undefinedRefs)],
+    [],
+    'a placeholder with no definition expands to an empty string, silently',
+  );
+});
+
+test('the CI build verifies the app it produced is configured', () => {
+  // The check above proves the spec is right on paper. This one proves CI still
+  // reads the plist it actually built, which is the only way to catch a
+  // placeholder that expanded to nothing.
+  const ios = readFileSync(join(root, '.github/workflows/ios.yml'), 'utf8');
+  assert.match(ios, /PlistBuddy/, 'no job inspects the built Info.plist');
+  assert.match(ios, /CFBundleIdentifier/, 'the built bundle identifier is never checked');
 });

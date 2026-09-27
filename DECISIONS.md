@@ -670,3 +670,58 @@ floating-point type that does, picks `Float16` for the literal `100`, and report
 the failure on the multiplication — which is fine. `StoreKit` gives prices as
 `Decimal`, so the arithmetic stays in `Decimal` and only the rounding leaves it:
 `Int(NSDecimalNumber(decimal: saving * 100).doubleValue.rounded())`.
+
+---
+
+## 37. The xcconfig is attached with `configFiles`, and CI reads the plist it built
+
+`ios/project.yml` had this, and it looks entirely reasonable:
+
+```yaml
+settings:
+  base:
+    # Every target reads its configuration from here.
+    "#include": Config.xcconfig
+```
+
+XcodeGen writes `settings` verbatim into the pbxproj build-settings dictionary,
+where `#include` is not a directive — it is just a build setting whose name
+happens to start with `#`, and nothing ever reads it. So `APP_BUNDLE_ID`,
+`SUPABASE_URL`, `APP_GROUP_IDENTIFIER` and the rest were never defined, and every
+`$(…)` in `Info.plist` expanded to an empty string.
+
+What makes this worth writing down is the failure mode. Nothing complained:
+
+- `xcodegen generate` succeeded.
+- `xcodebuild build` succeeded. Undefined build settings are not an error.
+- `AppConfig` would have trapped at launch — but nothing launched the app.
+- The **UI test job** failed, after five minutes, with
+  `Simulator device failed to install the application. Missing bundle ID.`
+
+A configuration bug surfaced as a test-runner installation failure two jobs
+downstream. The correct wiring is `configFiles`, which sets
+`baseConfigurationReference` on each configuration:
+
+```yaml
+configFiles:
+  Debug: Config.xcconfig
+  Release: Config.xcconfig
+```
+
+Three checks went in with the fix, because the fix alone would leave the same
+trap open for the next person:
+
+1. `project.yml` must declare `configFiles` for both configurations, and no
+   settings block may contain a key starting with `#`.
+2. Every `$(PLACEHOLDER)` in the plists, the entitlements, and `project.yml`
+   must be defined in `Config.xcconfig.example` or supplied by Xcode. A
+   misspelled placeholder expands to nothing, silently — this catches the typo
+   rather than the consequence.
+3. The `Build` job now reads the `Info.plist` out of the `BEFORE.app` it just
+   produced and fails if `CFBundleIdentifier`, `CFBundleExecutable`,
+   `SUPABASE_URL`, `SUPABASE_ANON_KEY` or `APP_GROUP_IDENTIFIER` is empty or
+   still literally `$(…)`.
+
+The first two run on any machine in milliseconds. The third is the one that
+matters: a spec can be correct on paper and still produce an unconfigured app,
+and the only way to know is to read the artefact.
