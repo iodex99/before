@@ -103,6 +103,13 @@ jobs:
         run: xcodegen generate
 
       - name: Build
+        # `SWIFT_COMPILATION_MODE=wholemodule` is here for the feedback loop, not
+        # for the artefact. In the default incremental mode the frontend stops at
+        # the first file it cannot type-check, so one run reports one file's
+        # errors and hides every other file's — which cost this project two round
+        # trips. Whole-module type-checks the target in one go and reports all of
+        # them.
+        #
         # No `| xcbeautify` and no `|| fallback`. The first version had both:
         # xcbeautify was not installed, so the pipeline failed, the fallback ran
         # a second build, and *its* unrelated destination error was the only
@@ -114,6 +121,7 @@ jobs:
             -scheme BEFORE \
             -destination 'generic/platform=iOS Simulator' \
             -skipPackagePluginValidation \
+            SWIFT_COMPILATION_MODE=wholemodule \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Summarise compile errors

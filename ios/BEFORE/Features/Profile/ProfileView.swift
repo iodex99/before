@@ -172,7 +172,10 @@ struct ProfileView: View {
     }
 
     private var privacySection: some View {
-        Section("Privacy") {
+        // SwiftUI offers `Section(_:content:)` and `Section(content:header:footer:)`
+        // and nothing in between, so a titled section that also wants a footer
+        // has to spell both closures out.
+        Section {
             Button(isExporting ? "Preparing your data…" : "Export my data") {
                 Task { await exportData() }
             }
@@ -185,6 +188,8 @@ struct ProfileView: View {
             if let terms = AppConfig.termsURL {
                 Button("Terms of Use") { openURL(terms) }
             }
+        } header: {
+            Text("Privacy")
         } footer: {
             Text("BEFORE never sells your wardrobe or purchase history, and your photos are stored privately.")
                 .font(BeforeTheme.Typeface.caption)

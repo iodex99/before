@@ -407,3 +407,38 @@ test('Decimal money is converted before it is rounded', () => {
     'Decimal has no rounded() — go through NSDecimalNumber(decimal:).doubleValue',
   );
 });
+
+test('a titled Section never also passes header: or footer:', () => {
+  // SwiftUI has `Section(_:content:)` and `Section(content:header:footer:)` and
+  // nothing in between. `Section("Privacy") { … } footer: { … }` is three
+  // compile errors, every one of them pointing at the title rather than at the
+  // footer that is actually the problem.
+  const offenders: string[] = [];
+
+  for (const { path, body } of sources) {
+    // Brace counting is only safe once string literals are gone: a `}` inside
+    // user-facing copy would throw the walk off.
+    const src = stripComments(body).replace(/"(?:[^"\\n]|\.)*"/g, '""');
+
+    for (const match of src.matchAll(/Section\(\s*[^)\s][^)]*\)\s*\{/g)) {
+      let depth = 0;
+      let i = match.index! + match[0].length - 1;
+      for (; i < src.length; i++) {
+        if (src[i] === '{') depth += 1;
+        else if (src[i] === '}' && --depth === 0) break;
+      }
+
+      const trailing = /^\s*(header|footer)\s*:/.exec(src.slice(i + 1, i + 40));
+      if (trailing) {
+        const line = src.slice(0, match.index).split('\n').length;
+        offenders.push(`${path}:${line} — Section(title) { … } ${trailing[1]}:`);
+      }
+    }
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    'write Section { content } header: { Text(title) } footer: { … } instead',
+  );
+});
