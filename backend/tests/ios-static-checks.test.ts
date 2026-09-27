@@ -578,3 +578,32 @@ test('the CI build verifies the app it produced is configured', () => {
   assert.match(ios, /PlistBuddy/, 'no job inspects the built Info.plist');
   assert.match(ios, /CFBundleIdentifier/, 'the built bundle identifier is never checked');
 });
+
+test('every StoreKit configuration a test asks for is a resource of that target', () => {
+  // `SKTestSession(configurationFileNamed:)` resolves against the test bundle,
+  // not the repository. A file that is merely present on disk fails at runtime
+  // with SKTestErrorDomain Code=4, "File not found" — a message that names
+  // neither StoreKit nor the file.
+  const missing: string[] = [];
+
+  for (const { path, body } of sources) {
+    for (const match of stripComments(body).matchAll(
+      /SKTestSession\s*\(\s*configurationFileNamed:\s*"([^"]+)"/g,
+    )) {
+      const wanted = `${match[1]}.storekit`;
+      // Which target owns this file?
+      const targetName = path.split('/')[0];
+      const target = spec.targets?.[targetName] as { sources?: unknown[] } | undefined;
+      assert.ok(target, `${path} is not in a target declared by project.yml`);
+
+      const declared = (target.sources ?? []).some((entry) => {
+        const value = typeof entry === 'string' ? entry : (entry as { path?: string }).path ?? '';
+        return value.endsWith(wanted);
+      });
+
+      if (!declared) missing.push(`${targetName} does not bundle ${wanted} (asked for by ${path})`);
+    }
+  }
+
+  assert.deepEqual([...new Set(missing)], []);
+});

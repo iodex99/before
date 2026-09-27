@@ -121,6 +121,13 @@ targets:
     platform: iOS
     sources:
       - BEFORETests
+      # SKTestSession(configurationFileNamed:) reads the TEST bundle, so the
+      # StoreKit configuration has to be a resource of this target. Without it
+      # every subscription test fails in setUp with SKTestErrorDomain Code=4,
+      # "File not found" — which does not mention StoreKit, the test bundle, or
+      # the file it was looking for.
+      - path: StoreKit/Products.storekit
+        buildPhase: resources
     dependencies:
       - target: BEFORE
       - package: BeforeKit
