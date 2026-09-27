@@ -4,27 +4,27 @@ What is not built, what is not verified, and what to do first.
 
 ---
 
-## 1. Finish going green on CI
+## 1. What is left
 
-The Swift is no longer unverified. `.github/workflows/iOS` compiles it on a macOS
-runner, and the fast `BeforeKit` job — pure logic, no Xcode project, no simulator
-— already passes, score parity included.
+CI is green: 280 backend tests, 21 `BeforeKit` tests, a clean Xcode build, 59
+app unit tests, 18 UI tests. `DECISIONS.md` §35 has what it found getting there.
 
-What is left, in order:
+Three things remain, in the order they matter:
 
-1. **The `Build` job.** Eight compile errors so far, over two runs, all fixed.
-   Expect a few more: the build had to stop at the first file it could not
-   type-check, so later files have not had their turn yet.
-2. **The `Unit and UI tests` job.** It is `needs: build`, so it has been skipped
-   every run so far and has never compiled the test targets. `SKTestSession` is
-   the most likely trouble — its API surface moves between Xcode versions.
-3. **TestFlight.** The workflow exists and is registered, but it has never run:
-   it needs twelve repository secrets first. `docs/RELEASE.md` is the checklist.
-4. **One live AI call.** Nothing in this repository has spoken to a model. The
-   provider abstraction, the prompt, the schema validation, and the cost model
-   are all exercised against fixtures only.
+1. **TestFlight.** The workflow exists and is registered, and has never run: it
+   needs twelve repository secrets. `docs/RELEASE.md` is the checklist, and the
+   first run will almost certainly need a second attempt — signing is the part
+   of iOS CI that most reliably surprises you.
+2. **One live AI call.** Nothing in this repository has spoken to a model. The
+   provider abstraction, the prompt, schema validation, the safety scan and the
+   cost model are all exercised against fixtures. The first real call is where
+   you find out whether the model returns the signal shape the schema expects.
+3. **The UI tests on a signed-in device.** 16 of the 18 skip themselves on CI,
+   because the simulator is signed out and signing in needs a real Apple ID. On
+   a runner they prove the app launches and renders; the flows they were written
+   for are unexercised.
 
-To reproduce the CI build locally on a Mac:
+To reproduce CI locally on a Mac:
 
 ```bash
 swift test --package-path ios/BeforeKit      # fast, no Xcode
@@ -34,29 +34,31 @@ make ios-project
 make ios-test
 ```
 
-### Where the compile errors actually were
+### Keeping the score on the pre-compiler predictions
 
-This list was written before anything had been compiled, as a prediction. Keeping
-the score is more useful than quietly deleting it:
+This list was written before anything had been compiled. Keeping it is more
+useful than quietly deleting it:
 
 | Predicted | Outcome |
 | --- | --- |
-| `@Observable` + `@MainActor` under strict concurrency in `AuthService`, `SubscriptionManager` | **Right.** Both, plus `AnalysisFlowViewModel` — see DECISIONS §36 |
+| `@Observable` + `@MainActor` under strict concurrency in `AuthService`, `SubscriptionManager` | **Right.** Both, plus `AnalysisFlowViewModel` — DECISIONS §36 |
+| `SKTestSession` API surface in `SubscriptionTests` | **Right in spirit, wrong in cause.** The API was fine; the configuration file was not in the test bundle, and one test's premise was untrue |
 | SwiftData `#Predicate` in `ResultView.record(_:)` | Not hit |
-| `SKTestSession` API surface in `SubscriptionTests` | Still untested — the test target has not compiled yet |
 | `Product.SubscriptionInfo.status(for:)` shape | Not hit |
 | `MockWardrobeRepository` actor isolation | Not hit |
 
-Three that were *not* predicted, and are the more instructive half:
+Five that were not predicted, and are the more instructive half:
 
 - A `public init` whose default arguments read the app-internal `AppConfig`.
-  Swift will not let a public signature depend on an internal type, and the fix
-  was to stop claiming the initialiser was public — nothing outside the target
-  calls it.
-- `SharedPayload` needed `Hashable`, not just `Equatable`, because
-  `CheckEntryPoint` carries one and SwiftUI needs the enum hashable.
-- `@Environment(.dismiss)` for `@Environment(\.dismiss)` — a typo that a static
-  check could have caught and did not.
+- `SharedPayload` needed `Hashable`, not just `Equatable`.
+- `Section("Privacy") { … } footer: { … }` — SwiftUI has no such initialiser.
+- `return XCTSkip(…)`, five times. `XCTSkip` is an `Error`; it is thrown.
+- `Decimal` has no `rounded()`, and the compiler reports it on the
+  multiplication three tokens earlier.
+
+And two that no compiler was ever going to catch: the xcconfig was not attached
+to the build at all, and the StoreKit configuration was not in the test bundle.
+Both are now checked, on any machine, in milliseconds.
 
 ---
 

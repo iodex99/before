@@ -528,11 +528,13 @@ a picked photo cost the same.
 
 ---
 
-## 35. What could not be verified in this environment
+## 35. What is verified, how, and what is not
 
-Built on Windows with Node 22. No Xcode, no Swift toolchain, no Supabase project.
+Written on Windows with Node 22, where there is no Xcode, no Swift toolchain and
+no Supabase project. Everything Swift is verified on a macOS runner instead;
+the migrations against Postgres in Docker, and the edge functions under Deno.
 
-### Verified by execution — 274 backend tests, plus a real database and type-checker
+### Verified by execution — 280 backend tests, plus a real database and type-checker
 
 | Suite | What it actually proves |
 | --- | --- |
@@ -590,32 +592,68 @@ that will run them, and it found three real errors on its first run:
 
 All three are fixed. This is precisely why the check is in CI.
 
-### What CI has now actually run
+### What CI found on the way to green
 
-`.github/workflows/ios.yml` runs the Swift on a macOS runner, and that closed the
-largest gap in this list.
+`.github/workflows/ios.yml` runs the Swift on a macOS runner. It is now green:
+21 `BeforeKit` tests, a clean Xcode build, 59 app unit tests, 18 UI tests. That
+took six runs, and what it found is the honest answer to "how much can static
+analysis substitute for a compiler".
 
-- **`BeforeKit` passes**, score parity included. The Swift engine reproduces all
-  14 shared fixtures, so the cross-language claim in §2 is now demonstrated on
-  both sides rather than on one side plus a text comparison.
-- **The Xcode build found eight compile errors across two runs** — six, then two
-  after those were fixed. Not one of them was in scoring, safety, or quota
-  logic; every one was a Swift 6 isolation or API-surface mistake. That is the
-  honest division of labour between a type-checker and a static check: the
-  checks in `ios-static-checks` caught a rule violation the compiler would have
-  happily accepted, and the compiler caught eight things no regex was going to
-  find.
+**Sixteen compile errors**, in four batches of six, two, three and five. Not one
+was in scoring, safety, or quota logic. Every one was Swift 6 isolation or API
+surface: a `deinit` that could not see main-actor state (§36), `Decimal` having
+no `rounded()`, a `public init` whose defaults read an internal type, a missing
+`Hashable`, `Section(title) { } footer: { }` — which SwiftUI has no initialiser
+for — and `return XCTSkip(…)` where `XCTSkip` is an `Error` to be thrown.
 
-The first run also taught a CI lesson worth keeping. The build step was written
-as `xcodebuild … | xcbeautify || xcodebuild …`. `xcbeautify` was not installed,
-so the pipeline failed, the fallback ran a *second* build, and that build's
-unrelated destination error was the only thing in the log. Six real compile
-errors were invisible for a full cycle. A build step now runs once and fails
-with the compiler's own output.
+**Two configuration bugs that no compiler would ever catch.** `Config.xcconfig`
+was never attached to the build at all (§37), and `Products.storekit` was never
+copied into the test bundle, so all thirteen subscription tests failed in
+`setUp` with `SKTestErrorDomain Code=4 "File not found"` — a message that names
+neither StoreKit nor the file it wanted.
 
-Still not executed: the app unit tests and the UI tests — they sit behind the
-build job, which has to be green first — the TestFlight workflow, which needs
-twelve repository secrets (`docs/RELEASE.md`), and any live AI provider call.
+**One real product bug.** A cancelled purchase that arrives as a *thrown* error
+— `StoreKitError.systemError` wrapping `SKError.paymentCancelled`, which
+bridging to `NSError` does not see through — was reported as a failure with an
+error message, which spec §45 forbids.
+
+**And two bad tests, which are worth separating from bugs.** Two entitlement
+tests asserted immediately after mutating an `SKTestSession`; those mutations do
+not reach `Transaction.currentEntitlements` synchronously. The fix was to wait,
+with a bound and a diagnostic dump on timeout — deliberately *not* to change
+`refreshEntitlements`, which turned out to be correct. A third test tried to
+simulate a user cancellation with `session.failureError = .paymentCancelled`;
+that simulates a server failure, and what actually arrives is
+`AMSErrorDomain Code=305`. The assertion was wrong, not the code.
+
+The division of labour is the interesting part. The static checks in
+`ios-static-checks` caught a force-unwrap that violated this project's own iOS
+rules — something a compiler accepts happily. The compiler caught sixteen things
+no regex was going to find. Neither caught the two configuration bugs; only
+reading the artefact did, which is why the `Build` job now PlistBuddy-reads the
+`Info.plist` out of the app it just produced.
+
+Each fix added a static check, and every one of those checks was verified by
+planting the bug it describes and watching it fail.
+
+**One CI lesson worth keeping.** The build step was originally
+`xcodebuild … | xcbeautify || xcodebuild …`. `xcbeautify` was not installed, the
+pipeline failed, the fallback ran a *second* build, and that build's unrelated
+destination error was the only thing in the log — six real compile errors hidden
+for a full cycle. Worse, the default incremental mode stops at the first file it
+cannot type-check, so each run reported one file and hid the rest. The build now
+runs once, fails with the compiler's own output, and passes
+`SWIFT_COMPILATION_MODE=wholemodule` so one run reports everything.
+
+### Still not executed
+
+- **The TestFlight workflow.** Written, registered, never run: it needs twelve
+  repository secrets first. `docs/RELEASE.md`.
+- **A live AI provider call.** Nothing here has spoken to a model. The provider
+  abstraction, the prompt, schema validation and the cost model are exercised
+  against fixtures only.
+- **16 of the 18 UI tests**, which skip themselves on a signed-out simulator.
+  They need a signed-in device.
 
 ---
 

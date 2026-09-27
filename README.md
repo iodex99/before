@@ -83,7 +83,7 @@ before/
 │   │                           me, usage, product-metadata, subscription-sync,
 │   │                           account-delete, account-export,
 │   │                           app-store-notifications
-│   ├── tests/                  274 tests, run with plain Node 22
+│   ├── tests/                  280 tests, run with plain Node 22
 │   └── scripts/                secret scan, fixture printer
 ├── docs/                       API, SETUP, AI, PRIVACY, LIMITS, APP_STORE, ICON
 ├── .claude/                    agents, commands, hooks, rules, skills
@@ -102,7 +102,7 @@ No Supabase project, no API key, no build step.
 
 ```bash
 npm install
-npm run test:backend     # 274 tests
+npm run test:backend     # 280 tests
 npm run check:secrets
 npm run check:deno       # type-check the edge functions under Deno
 npm run test:migrations  # apply migrations to real Postgres + RLS checks (Docker)
@@ -168,7 +168,7 @@ finding, and most have a test.
 
 | Suite | Command | Runs on |
 | --- | --- | --- |
-| Backend (274 tests) | `npm run test:backend` | any OS |
+| Backend (280 tests) | `npm run test:backend` | any OS |
 | Migrations + RLS | `npm run test:migrations` | any OS with Docker |
 | Edge function types | `npm run check:deno` | any OS |
 | Score parity (Swift) | `swift test --package-path ios/BeforeKit` | macOS |
@@ -199,22 +199,33 @@ so drift fails a build rather than reaching a user. See DECISIONS.md §2.
 
 ## Status
 
-**274 backend tests pass** on Windows with Node 22, and the Swift now compiles
-and runs on CI.
+Every automated check in this repository passes, on Linux and on macOS.
+
+| | | |
+| --- | --- | --- |
+| Backend tests | **280** | Node 22, any OS |
+| Migrations + RLS | 49 assertions | real Postgres 16 |
+| Edge function types | — | Deno |
+| `BeforeKit` + score parity | **21** | macOS runner |
+| Xcode build | green | macOS runner |
+| App unit tests | **59** | iPhone simulator |
+| UI tests | 18 run, 0 failures | see the caveat below |
 
 The backend total includes Apple signature verification against a real OpenSSL
 ECDSA certificate chain — the suite generates a second, independent chain and
 proves the verifier rejects it, so the root pinning is demonstrated rather than
 assumed.
 
-| | |
-| --- | --- |
-| Backend tests, migrations, edge-function types | pass locally and on CI |
-| `BeforeKit` + score parity | passes on a macOS runner |
-| Xcode build | found eight compile errors over two runs; all fixed |
-| App unit tests and UI tests | queued behind the build job |
-| TestFlight | written, never run — needs twelve secrets (`docs/RELEASE.md`) |
-| Live AI provider call | not executed |
+**Two honest caveats.**
 
-`DECISIONS.md` §35 lists exactly what has and has not been run, and §36 covers
-the Swift 6 isolation problem the build found. `TODO.md` §1 is what is left.
+*16 of the 18 UI tests skip on CI.* The simulator is signed out, and signing in
+needs a real Apple ID, so anything past the first screen skips itself rather
+than failing. They are written to run on a signed-in device; on CI they prove
+the app launches, renders, and does not crash, and little more.
+
+*Two things have never been executed at all:* the TestFlight workflow, which
+needs twelve repository secrets (**[docs/RELEASE.md](docs/RELEASE.md)**), and a
+live AI provider call. Everything AI-shaped runs against fixtures.
+
+`DECISIONS.md` §35 lists what CI found on the way to green, and `TODO.md` §1 is
+what remains.
