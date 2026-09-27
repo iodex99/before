@@ -442,3 +442,33 @@ test('a titled Section never also passes header: or footer:', () => {
     'write Section { content } header: { Text(title) } footer: { … } instead',
   );
 });
+
+test('XCTSkip is thrown, never returned', () => {
+  // `XCTSkip` is an `Error`, not a function. `return XCTSkip("…")` reads fine
+  // and is "unexpected non-void return value in void function" — and the test
+  // silently would not have skipped even if it compiled. The enclosing test
+  // also has to be `throws`.
+  const offenders: string[] = [];
+
+  for (const { path, body } of sources) {
+    const lines = stripComments(body).split('\n');
+
+    lines.forEach((line, index) => {
+      if (/\breturn\s+XCTSkip\s*\(/.test(line)) offenders.push(`${path}:${index + 1} — returned`);
+    });
+
+    // A `throw` inside a test the compiler was not told can throw.
+    let signature: { name: string; line: number; throws: boolean } | null = null;
+    lines.forEach((line, index) => {
+      const declaration = line.match(/^\s*(?:private\s+)?func\s+(\w+)\s*\([^)]*\)(\s+throws)?/);
+      if (declaration) {
+        signature = { name: declaration[1], line: index + 1, throws: Boolean(declaration[2]) };
+      }
+      if (/\bthrow\s+XCTSkip\s*\(/.test(line) && signature && !signature.throws) {
+        offenders.push(`${path}:${signature.line} — ${signature.name}() throws but is not marked throws`);
+      }
+    });
+  }
+
+  assert.deepEqual(offenders, [], 'XCTSkip must be thrown from a throwing test');
+});

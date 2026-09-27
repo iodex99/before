@@ -35,10 +35,10 @@ final class BEFOREUITests: XCTestCase {
         XCTAssertTrue(app.buttons["See how it works"].exists)
     }
 
-    func testHowItWorksExplainsTheAiNatureOfTheAdvice() {
+    func testHowItWorksExplainsTheAiNatureOfTheAdvice() throws {
         let button = app.buttons["See how it works"]
         guard button.waitForExistence(timeout: 5) else {
-            return XCTSkip("not on the onboarding screen")
+            throw XCTSkip("not on the onboarding screen")
         }
         button.tap()
 
@@ -106,7 +106,7 @@ final class BEFOREUITests: XCTestCase {
 
         let whatDidYouDo = app.buttons["What did you do?"]
         guard whatDidYouDo.waitForExistence(timeout: 5) else {
-            return XCTSkip("outcome prompt not shown for this verdict")
+            throw XCTSkip("outcome prompt not shown for this verdict")
         }
         whatDidYouDo.tap()
 
@@ -132,7 +132,7 @@ final class BEFOREUITests: XCTestCase {
         app.tabBars.buttons["History"].tap()
 
         let filter = app.segmentedControls.firstMatch
-        guard filter.waitForExistence(timeout: 3) else { return XCTSkip("no history yet") }
+        guard filter.waitForExistence(timeout: 3) else { throw XCTSkip("no history yet") }
 
         for label in ["BUY", "WAIT", "BYE", "All"] where filter.buttons[label].exists {
             filter.buttons[label].tap()
@@ -245,7 +245,7 @@ final class BEFOREUITests: XCTestCase {
 
         let seePlus = app.buttons["See BEFORE Plus"]
         guard seePlus.waitForExistence(timeout: 5) else {
-            return XCTSkip("already subscribed in this run")
+            throw XCTSkip("already subscribed in this run")
         }
         seePlus.tap()
 
@@ -270,7 +270,7 @@ final class BEFOREUITests: XCTestCase {
 
         let restore = app.buttons["Restore Purchases"]
         guard restore.waitForExistence(timeout: 5) else {
-            return XCTSkip("already subscribed in this run")
+            throw XCTSkip("already subscribed in this run")
         }
         restore.tap()
     }

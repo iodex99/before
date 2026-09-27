@@ -193,6 +193,8 @@ jobs:
           xcrun simctl list devices available | grep -i iphone | head -5
 
       - name: Test
+        # Whole-module for the same reason as the Build job: incremental mode
+        # reports the first file it cannot type-check and hides the rest.
         run: |
           set -o pipefail
           xcodebuild test \
@@ -200,6 +202,7 @@ jobs:
             -scheme BEFORE \
             -destination "id=${{ steps.sim.outputs.udid }}" \
             -resultBundlePath TestResults.xcresult \
+            SWIFT_COMPILATION_MODE=wholemodule \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Upload test results
