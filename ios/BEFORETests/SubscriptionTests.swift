@@ -204,19 +204,59 @@ final class SubscriptionTests: XCTestCase {
         XCTAssertFalse(manager.isPlus)
     }
 
-    func testACancelledPurchaseIsNotAnError() async throws {
-        await manager.loadProducts()
-        let product = try XCTUnwrap(manager.monthly)
+    /// A user cancellation cannot be simulated through `SKTestSession`.
+    ///
+    /// The obvious attempt does not work:
+    ///
+    /// ```swift
+    /// session.failTransactionsEnabled = true
+    /// session.failureError = .paymentCancelled
+    /// ```
+    ///
+    /// `failureError` simulates a *server-side* failure, not a person tapping
+    /// Cancel. What actually arrives is
+    /// `AMSErrorDomain Code=305 "Server Error"`, which StoreKit itself logs as
+    /// "Received error that does not have a corresponding StoreKit Error" — so
+    /// the outcome is a legitimate `.failed`, and asserting `.userCancelled`
+    /// there was asserting something untrue.
+    ///
+    /// Tapping Cancel is a UI action, and in that case `purchase()` *returns*
+    /// `.userCancelled` rather than throwing, which `purchase(_:)` handles
+    /// directly. What remains testable, and what actually had a bug, is the
+    /// thrown form — so test that where it lives.
+    func testCancellationIsRecognisedHoweverItArrives() {
+        let cancelled = NSError(
+            domain: SKErrorDomain,
+            code: SKError.Code.paymentCancelled.rawValue
+        )
 
-        session.failTransactionsEnabled = true
-        session.failureError = .paymentCancelled
+        XCTAssertTrue(
+            SubscriptionManager.isCancellation(StoreKitError.userCancelled),
+            "the plain thrown form"
+        )
+        XCTAssertTrue(
+            SubscriptionManager.isCancellation(cancelled),
+            "a bare SKError"
+        )
+        XCTAssertTrue(
+            SubscriptionManager.isCancellation(StoreKitError.systemError(cancelled)),
+            "wrapped in systemError — bridging to NSError does not see through this"
+        )
 
-        let outcome = await manager.purchase(product)
-
-        // Cancelling is a normal thing to do and must not produce an error
-        // message or grant anything.
-        XCTAssertEqual(outcome, .userCancelled)
-        XCTAssertFalse(manager.isPlus)
+        // The error a StoreKit Testing session really produces. It is a
+        // failure, and it must keep producing a readable failure message.
+        XCTAssertFalse(
+            SubscriptionManager.isCancellation(
+                StoreKitError.systemError(NSError(domain: "AMSErrorDomain", code: 305))
+            ),
+            "a server error is not a cancellation"
+        )
+        XCTAssertFalse(
+            SubscriptionManager.isCancellation(StoreKitError.notEntitled)
+        )
+        XCTAssertFalse(
+            SubscriptionManager.isCancellation(URLError(.timedOut))
+        )
     }
 
     func testAFailedPurchaseProducesAReadableMessageAndNoEntitlement() async throws {

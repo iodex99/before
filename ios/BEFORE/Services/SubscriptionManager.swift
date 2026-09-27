@@ -291,7 +291,9 @@ public final class SubscriptionManager {
     ///
     /// Cancelling is a normal thing to do. It is not a failure, and it must not
     /// produce an error message (spec §45).
-    private static func isCancellation(_ error: Error) -> Bool {
+    /// Internal, not private: SubscriptionTests exercises this directly, because
+    /// a user cancellation cannot be produced through SKTestSession.
+    static func isCancellation(_ error: Error) -> Bool {
         if let storeKitError = error as? StoreKitError {
             if case .userCancelled = storeKitError { return true }
             if case .systemError(let underlying) = storeKitError {
